@@ -692,9 +692,75 @@ function estadoDoBotao(chat) {
   caixa.placeholder = vozEstado === 'gravando' ? 'Gravando… toque em ■ para parar' : vozEstado === 'transcrevendo' ? 'Transcrevendo no PC…' : 'Mensagem';
 }
 
+/** The phone's own speech recognition, when the browser has it (Chrome on Android). */
+const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+/** "celular" uses the phone's recognition, "pc" sends the recording to the Whisper on the PC. */
+function modoDeVoz() {
+  const salvo = guardado.ler('voz');
+  if (salvo === 'pc' || salvo === 'celular') return salvo;
+  return Reconhecimento ? 'celular' : 'pc';
+}
+
+/**
+ * Writes what the phone's recognition hears straight into the message box, as it hears it, so the person
+ * sees the words while speaking. Pressing the button again stops it; the text stays to be sent or edited.
+ */
+function ouvirDoCelular() {
+  const caixa0 = $('texto');
+  const base = caixa0 && caixa0.value.trim() ? `${caixa0.value.trim()} ` : '';
+  const reconhecedor = new Reconhecimento();
+  reconhecedor.lang = 'pt-BR';
+  reconhecedor.interimResults = true;
+  reconhecedor.continuous = true;
+  reconhecedor.maxAlternatives = 1;
+  let final = '';
+  reconhecedor.onresult = (evento) => {
+    let provisorio = '';
+    final = '';
+    for (const resultado of evento.results) {
+      if (resultado.isFinal) final += resultado[0].transcript;
+      else provisorio += resultado[0].transcript;
+    }
+    const caixa = $('texto');
+    if (caixa) {
+      caixa.value = `${base}${final}${provisorio}`.replace(/s+/g, ' ').replace(/^ /, '');
+      caixa.dispatchEvent(new Event('input'));
+    }
+  };
+  reconhecedor.onerror = (evento) => {
+    const mensagens = {
+      'no-speech': 'Não ouvi nada. Toque no microfone e fale.',
+      'not-allowed': 'Permita o microfone nas configurações do Chrome.',
+      'audio-capture': 'Não encontrei o microfone.',
+      network: 'O reconhecimento precisa de internet. Verifique a conexão.',
+    };
+    avisoRapido(mensagens[evento.error] || `O reconhecimento parou (${evento.error}).`);
+  };
+  reconhecedor.onend = () => {
+    gravacao = null;
+    vozEstado = '';
+    atualizarEstadoDoChat();
+    $('texto')?.focus();
+  };
+  gravacao = { reconhecedor };
+  vozEstado = 'gravando';
+  try {
+    reconhecedor.start();
+    vibrar();
+  } catch {
+    gravacao = null;
+    vozEstado = '';
+    avisoRapido('Não consegui iniciar o microfone. Tente de novo.');
+  }
+  atualizarEstadoDoChat();
+}
+
 /** Records the person's voice; the PC turns it into text and the text goes into the box, ready to edit. */
 async function alternarGravacao() {
+  if (vozEstado === 'gravando' && gravacao?.reconhecedor) { gravacao.reconhecedor.stop(); return; }
   if (vozEstado === 'gravando' && gravacao) { gravacao.recorder.stop(); return; }
+  if (modoDeVoz() === 'celular' && Reconhecimento) { ouvirDoCelular(); return; }
   if (estado && !estado.vozPronta) { avisoRapido('O PC ainda não tem o modelo de voz. No Hub, abra um chat e toque em Falar para baixar.'); return; }
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { avisoRapido('Este navegador não grava áudio.'); return; }
   try {
@@ -861,6 +927,13 @@ function desenharAjustes() {
       botao.querySelector('.amostra').style.background = `linear-gradient(135deg, ${tema.amostra[0]} 55%, ${tema.amostra[1]} 55%)`;
       return botao;
     })),
+    el('h2', { class: 'secao' }, 'Voz'),
+    el('div', { class: 'cartao' },
+      el('p', { class: 'suave pequeno' }, Reconhecimento ? 'Quem entende a sua fala:' : 'Este navegador não tem reconhecimento de voz; a fala vai para o PC.'),
+      el('div', { class: 'temas', role: 'radiogroup', 'aria-label': 'Reconhecimento de voz' },
+        el('button', { class: `tema${modoDeVoz() === 'celular' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'celular'), disabled: !Reconhecimento, onclick: () => { guardado.gravar('voz', 'celular'); desenhar(); } }, 'Este celular'),
+        el('button', { class: `tema${modoDeVoz() === 'pc' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'pc'), onclick: () => { guardado.gravar('voz', 'pc'); desenhar(); } }, 'PC (Whisper)')),
+      el('p', { class: 'suave pequeno' }, 'Este celular é mais rápido, mas precisa de internet e usa o reconhecimento do Chrome. O PC é mais preciso, mas precisa estar ligado e leva alguns segundos.')),
     el('p', { class: 'suave pequeno' }, 'Cor de destaque'),
     el('div', { class: 'grade-cores', role: 'radiogroup', 'aria-label': 'Cor de destaque' },
       el('button', { class: `auto${guardado.ler('cor') ? '' : ' ativo'}`, 'aria-label': 'Cor do tema', onclick: () => { guardado.apagar('cor'); aplicarAparencia(); desenhar(); } }, 'A'),

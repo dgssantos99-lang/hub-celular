@@ -9,7 +9,7 @@ Uma página que você instala no Android e que conversa com os chats do Hub **us
 - Trocar o ícone e o modelo do Claude de cada chat, e enviar arquivos do celular para um trabalho.
 - Ver, ouvir e baixar os arquivos do trabalho que estão no Drive (imagem, áudio, vídeo, texto).
 - O **assistente geral** está na aba Assistente. As ações que ele pede ficam esperando a sua aprovação, que pode ser dada pelo celular ou pelo PC.
-- Mensagem de voz: toque no microfone, fale e toque de novo; o PC transcreve com o Whisper (o modelo de voz precisa estar baixado no Hub) e o texto vai para a caixa de mensagem.
+- Mensagem de voz: toque no microfone e fale. Por padrão, quem entende é o reconhecimento do próprio celular (precisa de internet e do Chrome); em Ajustes › Voz, dá para escolher o PC (Whisper), mais preciso, mas que precisa do PC ligado e do modelo de voz baixado no Hub.
 - Temas, cor de destaque e o gasto do mês.
 
 ## O que precisa estar ligado
