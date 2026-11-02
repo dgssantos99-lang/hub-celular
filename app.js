@@ -697,9 +697,10 @@ const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognitio
 
 /** "celular" uses the phone's recognition, "pc" sends the recording to the Whisper on the PC. */
 function modoDeVoz() {
-  const salvo = guardado.ler('voz');
+  // The key is new on purpose: a choice saved by an older version of the page must not keep sending audio to the PC.
+  const salvo = guardado.ler('vozModo');
   if (salvo === 'pc' || salvo === 'celular') return salvo;
-  return Reconhecimento ? 'celular' : 'pc';
+  return 'celular';
 }
 
 /**
@@ -760,7 +761,11 @@ function ouvirDoCelular() {
 async function alternarGravacao() {
   if (vozEstado === 'gravando' && gravacao?.reconhecedor) { gravacao.reconhecedor.stop(); return; }
   if (vozEstado === 'gravando' && gravacao) { gravacao.recorder.stop(); return; }
-  if (modoDeVoz() === 'celular' && Reconhecimento) { ouvirDoCelular(); return; }
+  if (modoDeVoz() === 'celular') {
+    if (Reconhecimento) { ouvirDoCelular(); return; }
+    // Said out loud, so the person knows why the audio goes to the PC this time.
+    avisoRapido('Este navegador não tem reconhecimento de voz. Use o Chrome; por enquanto a fala vai para o PC.');
+  }
   if (estado && !estado.vozPronta) { avisoRapido('O PC ainda não tem o modelo de voz. No Hub, abra um chat e toque em Falar para baixar.'); return; }
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { avisoRapido('Este navegador não grava áudio.'); return; }
   try {
@@ -931,8 +936,8 @@ function desenharAjustes() {
     el('div', { class: 'cartao' },
       el('p', { class: 'suave pequeno' }, Reconhecimento ? 'Quem entende a sua fala:' : 'Este navegador não tem reconhecimento de voz; a fala vai para o PC.'),
       el('div', { class: 'temas', role: 'radiogroup', 'aria-label': 'Reconhecimento de voz' },
-        el('button', { class: `tema${modoDeVoz() === 'celular' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'celular'), disabled: !Reconhecimento, onclick: () => { guardado.gravar('voz', 'celular'); desenhar(); } }, 'Este celular'),
-        el('button', { class: `tema${modoDeVoz() === 'pc' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'pc'), onclick: () => { guardado.gravar('voz', 'pc'); desenhar(); } }, 'PC (Whisper)')),
+        el('button', { class: `tema${modoDeVoz() === 'celular' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'celular'), disabled: !Reconhecimento, onclick: () => { guardado.gravar('vozModo', 'celular'); desenhar(); } }, 'Este celular'),
+        el('button', { class: `tema${modoDeVoz() === 'pc' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'pc'), onclick: () => { guardado.gravar('vozModo', 'pc'); desenhar(); } }, 'PC (Whisper)')),
       el('p', { class: 'suave pequeno' }, 'Este celular é mais rápido, mas precisa de internet e usa o reconhecimento do Chrome. O PC é mais preciso, mas precisa estar ligado e leva alguns segundos.')),
     el('p', { class: 'suave pequeno' }, 'Cor de destaque'),
     el('div', { class: 'grade-cores', role: 'radiogroup', 'aria-label': 'Cor de destaque' },

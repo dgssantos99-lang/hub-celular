@@ -1,5 +1,5 @@
 // Keeps the page itself on the phone so it opens at once; the Drive is never cached.
-const NOME = 'hub-celular-v2';
+const NOME = 'hub-celular-v3';
 const ARQUIVOS = ['./', 'index.html', 'app.js', 'entrar.js', 'logica.js', 'estilo.css', 'icone.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (evento) => {
