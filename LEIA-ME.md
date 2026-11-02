@@ -8,7 +8,8 @@ Uma página que você instala no Android e que conversa com os chats do Hub **us
 - Conversar com os chats em tela estilo mensageiro, mandar fotos, áudios e arquivos junto da mensagem, e parar a resposta.
 - Trocar o ícone e o modelo do Claude de cada chat, e enviar arquivos do celular para um trabalho.
 - Ver, ouvir e baixar os arquivos do trabalho que estão no Drive (imagem, áudio, vídeo, texto).
-- O **assistente geral** está na aba Assistente. As ações que ele pede com aprovação continuam sendo aprovadas só no PC.
+- O **assistente geral** está na aba Assistente. As ações que ele pede ficam esperando a sua aprovação, que pode ser dada pelo celular ou pelo PC.
+- Mensagem de voz: toque no microfone, fale e toque de novo; o PC transcreve com o Whisper (o modelo de voz precisa estar baixado no Hub) e o texto vai para a caixa de mensagem.
 - Temas, cor de destaque e o gasto do mês.
 
 ## O que precisa estar ligado
@@ -31,4 +32,4 @@ O login fica guardado: a página renova o próprio acesso sozinha e não pede pa
 
 - Quem tem acesso de edição à pasta `Hub/Ponte` pode mandar mensagens aos chats, inclusive ao assistente. Não compartilhe essa pasta.
 - O ID, a chave secreta e a permissão duradoura ficam só no navegador do aparelho. Se perder o celular, revogue o acesso em myaccount.google.com/permissions.
-- Aprovações de ações do assistente continuam só no PC.
+- Quem controla a pasta Hub/Ponte também consegue aprovar ações do assistente. Por isso, mantenha a conta do Google protegida.

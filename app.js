@@ -24,11 +24,25 @@ const sessao = {
   ate: Number(guardado.ler('tokenAte') || 0),
   renovando: null,
 };
-let estado = null;
-let assinatura = '';
+/** The last state seen, kept on the phone so the page opens at once while the new one is fetched. */
+function lerCache() {
+  try { return JSON.parse(guardado.ler('estadoCache') || 'null'); } catch { return null; }
+}
+function lerRotaSalva() {
+  try {
+    const salva = JSON.parse(guardado.ler('rota') || 'null');
+    return salva && typeof salva.tipo === 'string' && salva.tipo !== 'config' ? salva : { tipo: 'inicio' };
+  } catch { return { tipo: 'inicio' }; }
+}
+let estado = configurado() && guardado.ler('renovacao') ? lerCache() : null;
+let assinatura = estado ? JSON.stringify({ ...estado, atualizadoEm: '' }) : '';
 let ids = { entrada: null, estado: null, arquivos: null };
-let rota = { tipo: 'inicio' };
+let rota = estado ? lerRotaSalva() : { tipo: 'inicio' };
 let historico = [];
+const respondidas = new Set(); // approvals answered from here, hidden at once
+let gravacao = null; // the voice message being recorded
+let vozEstado = ''; // '', 'gravando' or 'transcrevendo'
+let vozPedido = null;
 let aviso = '';
 let folha = null;
 let pendentes = []; // messages sent from here that the PC has not shown yet
@@ -222,18 +236,24 @@ function bolinhaDoChat(chat, grande) {
   return avatar ? bolinha(chat.titulo, { emoji: avatar.emoji, cor: `${avatar.cor}`, grande }) : bolinha(chat.titulo, { grande });
 }
 
-function ir(nova, voltando = false) {
-  if (!voltando) historico.push(rota);
+function ir(nova) {
+  historico.push(rota);
+  try { window.history.pushState({ hub: true }, ''); } catch { /* sem histórico: o botão voltar do app continua valendo */ }
   rota = nova;
   folha = null;
-  desenhar(voltando ? 'volta' : 'frente');
+  desenhar('frente');
 }
 
 function voltarUma() {
-  const anterior = historico.pop() ?? { tipo: 'inicio' };
-  rota = anterior;
+  rota = historico.pop() ?? { tipo: 'inicio' };
   folha = null;
   desenhar('volta');
+}
+
+/** The back arrow and the phone's back button do the same thing. */
+function voltarNavegacao() {
+  if (historico.length > 0) window.history.back();
+  else voltarUma();
 }
 
 /** A short message that fades by itself. */
@@ -358,10 +378,7 @@ function folhaRenomear(entidade, alvo, nomeAtual) {
 
 function folhaLixeira(entidade, alvo, nome) {
   abrirFolha({ titulo: `Enviar "${nome}" para a lixeira?`, corpo: [el('p', { class: 'suave' }, 'Fica na lixeira do Hub, no PC, e dá para restaurar de lá.')], confirmar: 'Enviar para a lixeira', perigo: true, ao: () => {
-    const antes = historico.length;
-    void pedir({ ...novoPedido('lixeira', 0), entidade, alvo }, `Enviando "${nome}" para a lixeira…`).then(() => {
-      if (historico.length === antes) voltarUma();
-    });
+    void pedir({ ...novoPedido('lixeira', 0), entidade, alvo }, `Enviando "${nome}" para a lixeira…`).then(() => voltarNavegacao());
   } });
 }
 
@@ -399,6 +416,8 @@ function definirTopo({ titulo, sub = '', avatar = null, voltar = false, menu = n
     botao.classList.toggle('ativa', botao.dataset.aba === aba);
     botao.setAttribute('aria-current', botao.dataset.aba === aba ? 'page' : 'false');
   }
+  const esperando = aprovacoesPendentes().length;
+  topo.abas.querySelector('[data-aba=assistente]')?.classList.toggle('aviso', esperando > 0);
   const presente = estado ? pcPresente(estado) : false;
   topo.pc.className = `pc ${estado ? (presente ? 'on' : 'off') : ''}`;
   topo.pc.title = estado ? (presente ? 'PC ligado' : `PC visto ${haQuanto(estado.atualizadoEm)}`) : '';
@@ -410,12 +429,13 @@ function trabalhoAtual() { return projetoAtual()?.trabalhos.find((item) => item.
 
 function desenhar(direcao = '') {
   const rascunho = $('texto')?.value ?? '';
+  if (rota.tipo !== 'config') guardado.gravar('rota', JSON.stringify(rota));
   tela.replaceChildren();
   tela.className = direcao ? `entra-${direcao}` : '';
   tela.scrollTop = 0;
   if (aviso) tela.append(el('p', { class: 'erro faixa' }, aviso));
   if (rota.tipo === 'config') return desenharConfig();
-  if (!estado) return desenharEntrada();
+  if (!estado) return configurado() && guardado.ler('renovacao') && !precisaEntrar ? desenharCarregando() : desenharEntrada();
   if (rota.tipo === 'inicio') desenharInicio();
   else if (rota.tipo === 'projeto') desenharProjeto();
   else if (rota.tipo === 'trabalho') desenharTrabalho();
@@ -450,6 +470,11 @@ function desenharConfig() {
         desenhar();
       } }, 'Salvar')),
   );
+}
+
+function desenharCarregando() {
+  definirTopo({ titulo: 'Hub', sub: 'conectando ao PC…' });
+  for (let i = 0; i < 4; i++) tela.append(el('div', { class: 'esqueleto', 'aria-hidden': 'true' }, el('i'), el('span')));
 }
 
 function desenharEntrada() {
@@ -585,14 +610,9 @@ function desenharChat(rascunho) {
   caixa.addEventListener('input', () => { caixa.style.height = 'auto'; caixa.style.height = `${Math.min(caixa.scrollHeight, 140)}px`; atualizarBotao(); });
   const botao = el('button', { id: 'enviar', class: 'redondo', 'aria-label': 'Enviar' }, el('span', { 'aria-hidden': 'true' }, '➤'));
   const clipe = el('button', { class: 'clipe', 'aria-label': 'Anexar arquivo', onclick: () => escolherArquivo(anexar) }, '📎');
-  const atualizarBotao = () => {
-    const parando = chat.ocupado && caixa.value.trim() === '' && anexos.length === 0;
-    botao.classList.toggle('parar', parando);
-    botao.setAttribute('aria-label', parando ? 'Parar a resposta' : 'Enviar');
-    botao.firstChild.textContent = parando ? '■' : '➤';
-    botao.disabled = anexos.some((a) => a.estado === 'enviando') || (!parando && caixa.value.trim() === '' && anexos.length === 0);
-  };
+  const atualizarBotao = () => atualizarEstadoDoChat();
   botao.addEventListener('click', async () => {
+    if (botao.classList.contains('mic') || botao.classList.contains('gravando')) { void alternarGravacao(); return; }
     if (botao.classList.contains('parar')) { void enviarPedido({ ...novoPedido('parar', chat.id), assistente }).catch((erro) => { aviso = erro.message; desenhar(); }); return; }
     const texto = caixa.value.trim();
     const prontos = anexos.filter((a) => a.estado === 'ok');
@@ -609,11 +629,135 @@ function desenharChat(rascunho) {
     try { await enviarPedido(pedido); aviso = ''; } catch (erro) { aviso = erro.message; pendentes = pendentes.filter((p) => p.id !== pedido.id); montarMensagens(chat, false); }
   });
   caixa.addEventListener('keydown', (evento) => { if (evento.key === 'Enter' && (evento.ctrlKey || evento.metaKey)) botao.click(); });
-  tela.append(lista, el('div', { id: 'anexos', class: 'anexos' }), el('div', { id: 'envio' }, clipe, caixa, botao));
+  const modelo = el('button', { class: 'modelo-chip', onclick: () => folhaModelo(chat, assistente) }, `🧠 ${nomeDoModelo(chat.modelo)} ▾`);
+  const faixaPc = !estado || pcPresente(estado) ? null : el('p', { class: 'faixa-pc' }, 'O PC parece desligado. As mensagens esperam e são entregues quando ele ligar.');
+  tela.append(lista, faixaPc, el('div', { id: 'aprovacoes' }), el('div', { id: 'anexos', class: 'anexos' }), el('div', { class: 'barra-modelo' }, modelo), el('div', { id: 'envio' }, clipe, caixa, botao));
   tela.classList.add('chat');
   montarMensagens(chat, true);
+  montarAprovacoes();
   desenharAnexos();
   atualizarBotao();
+}
+
+function nomeDoModelo(id) {
+  return (estado?.modelosClaude || []).find((item) => item.id === id)?.nome ?? 'Padrão';
+}
+
+function folhaModelo(chat, assistente) {
+  abrirFolha({ titulo: 'Modelo do Claude', itens: (estado.modelosClaude || []).map((item) => ({
+    rotulo: `${item.id === chat.modelo ? '✓ ' : ''}${item.nome}`,
+    ao: () => void pedir({ ...novoPedido('ajustarChat', chat.id), assistente, modelo: item.id }, `Trocando para ${item.nome}…`),
+  })) });
+}
+
+function aprovacoesPendentes() {
+  return (estado?.aprovacoes || []).filter((item) => !respondidas.has(item.id));
+}
+
+/** What the global assistant asks to approve: the same question the PC shows. */
+function montarAprovacoes() {
+  const caixa = $('aprovacoes');
+  if (!caixa) return;
+  caixa.replaceChildren(...(rota.tipo === 'assistente' ? aprovacoesPendentes() : []).map((item) => el('div', { class: 'aprovacao' },
+    el('p', {}, item.texto),
+    el('div', { class: 'acoes' },
+      el('button', { class: 'botao', onclick: () => responderAprovacao(item, true) }, 'Aprovar'),
+      el('button', { class: 'botao sec', onclick: () => responderAprovacao(item, false) }, 'Recusar')))));
+}
+
+function responderAprovacao(item, aceitar) {
+  respondidas.add(item.id);
+  montarAprovacoes();
+  vibrar();
+  enviarPedido({ ...novoPedido('aprovar', 0), aprovacao: item.id, aceitar })
+    .then(() => avisoRapido(aceitar ? 'Aprovado. O PC vai fazer agora.' : 'Recusado.'))
+    .catch((erro) => { respondidas.delete(item.id); aviso = erro.message; montarAprovacoes(); avisoRapido(erro.message); });
+}
+
+/** The send button is a microphone when there is nothing to send, and a stop when the chat is answering. */
+function estadoDoBotao(chat) {
+  const botao = $('enviar');
+  const caixa = $('texto');
+  if (!botao || !caixa) return;
+  const vazio = caixa.value.trim() === '' && anexos.length === 0;
+  const parando = chat.ocupado && vazio;
+  const mic = vazio && !chat.ocupado;
+  botao.classList.toggle('parar', parando && vozEstado === '');
+  botao.classList.toggle('mic', mic && vozEstado === '');
+  botao.classList.toggle('gravando', vozEstado === 'gravando');
+  const simbolo = vozEstado === 'gravando' ? '■' : vozEstado === 'transcrevendo' ? '…' : parando ? '■' : mic ? '🎤' : '➤';
+  botao.firstChild.textContent = simbolo;
+  botao.setAttribute('aria-label', vozEstado === 'gravando' ? 'Parar a gravação' : parando ? 'Parar a resposta' : mic ? 'Gravar mensagem de voz' : 'Enviar');
+  botao.disabled = vozEstado === 'transcrevendo' || anexos.some((a) => a.estado === 'enviando');
+  caixa.placeholder = vozEstado === 'gravando' ? 'Gravando… toque em ■ para parar' : vozEstado === 'transcrevendo' ? 'Transcrevendo no PC…' : 'Mensagem';
+}
+
+/** Records the person's voice; the PC turns it into text and the text goes into the box, ready to edit. */
+async function alternarGravacao() {
+  if (vozEstado === 'gravando' && gravacao) { gravacao.recorder.stop(); return; }
+  if (estado && !estado.vozPronta) { avisoRapido('O PC ainda não tem o modelo de voz. No Hub, abra um chat e toque em Falar para baixar.'); return; }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { avisoRapido('Este navegador não grava áudio.'); return; }
+  try {
+    const fluxo = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const tipo = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((item) => MediaRecorder.isTypeSupported(item)) || '';
+    const recorder = new MediaRecorder(fluxo, tipo ? { mimeType: tipo } : undefined);
+    const pedacos = [];
+    recorder.ondataavailable = (evento) => { if (evento.data.size > 0) pedacos.push(evento.data); };
+    recorder.onstop = () => {
+      for (const faixa of fluxo.getTracks()) faixa.stop();
+      gravacao = null;
+      const blob = new Blob(pedacos, { type: recorder.mimeType || 'audio/webm' });
+      if (blob.size < 800) { vozEstado = ''; atualizarEstadoDoChat(); avisoRapido('Não ouvi nada. Tente de novo.'); return; }
+      void transcrever(blob);
+    };
+    gravacao = { recorder };
+    vozEstado = 'gravando';
+    recorder.start();
+    vibrar();
+    atualizarEstadoDoChat();
+  } catch (erro) {
+    vozEstado = '';
+    avisoRapido(erro.name === 'NotAllowedError' ? 'Permita o microfone nas configurações do navegador.' : `Não consegui gravar: ${erro.message}`);
+    atualizarEstadoDoChat();
+  }
+}
+
+function atualizarEstadoDoChat() {
+  const achado = chatAtual();
+  estadoDoBotao(achado?.chat ?? { ocupado: false });
+}
+
+async function transcrever(blob) {
+  vozEstado = 'transcrevendo';
+  atualizarEstadoDoChat();
+  try {
+    const extensao = blob.type.includes('mp4') ? 'm4a' : 'webm';
+    const arquivo = new File([blob], `fala-${Date.now()}.${extensao}`, { type: blob.type });
+    const driveId = await enviarArquivoAoDrive(arquivo, () => undefined);
+    const pedido = { ...novoPedido('transcrever', 0), driveId, nome: arquivo.name };
+    vozPedido = pedido.id;
+    await enviarPedido(pedido);
+    setTimeout(() => { if (vozPedido === pedido.id && vozEstado === 'transcrevendo') { vozPedido = null; vozEstado = ''; avisoRapido('O PC não respondeu a tempo. Tente de novo.'); atualizarEstadoDoChat(); } }, 120_000);
+  } catch (erro) {
+    vozPedido = null;
+    vozEstado = '';
+    avisoRapido(erro.message);
+    atualizarEstadoDoChat();
+  }
+}
+
+/** When the PC's answer to a voice message arrives, the text goes into the message box. */
+function aplicarVoz() {
+  if (!vozPedido) return;
+  const resultado = estado?.resultados?.[vozPedido];
+  if (!resultado) return;
+  vozPedido = null;
+  vozEstado = '';
+  if (resultado.ok && resultado.texto) {
+    const caixa = $('texto');
+    if (caixa) { caixa.value = caixa.value ? `${caixa.value} ${resultado.texto}` : resultado.texto; caixa.dispatchEvent(new Event('input')); caixa.focus(); }
+  } else avisoRapido(resultado.mensagem || 'Não consegui transcrever.');
+  atualizarEstadoDoChat();
 }
 
 function anexar(lista) {
@@ -666,13 +810,7 @@ function montarMensagens(chat, rolar) {
   const ultimo = chat.mensagens.at(-1)?.id ?? 0;
   vistas.set(chave, ultimo);
   if (rolar || perto) lista.scrollTop = lista.scrollHeight;
-  const botao = $('enviar');
-  if (botao) {
-    const parando = chat.ocupado && $('texto')?.value.trim() === '' && anexos.length === 0;
-    botao.classList.toggle('parar', parando);
-    botao.firstChild.textContent = parando ? '■' : '➤';
-    botao.disabled = anexos.some((a) => a.estado === 'enviando') || (!parando && $('texto')?.value.trim() === '' && anexos.length === 0);
-  }
+  estadoDoBotao(chat);
 }
 
 // ---------- arquivos e ajustes
@@ -762,11 +900,13 @@ async function carregar() {
     const primeiro = !estado;
     estado = novo;
     assinatura = sem;
+    try { const texto = JSON.stringify(novo); if (texto.length < 1_500_000) guardado.gravar('estadoCache', texto); } catch { /* sem cache */ }
+    aplicarVoz();
     aviso = aviso && !aviso.startsWith('Enviando') ? '' : aviso;
     if (primeiro || (mudou && !folha)) {
       if (rota.tipo === 'chat' || rota.tipo === 'assistente') {
         const achado = chatAtual();
-        if (achado && $('mensagens')) { definirTopoDoChat(achado.chat); montarMensagens(achado.chat, false); }
+        if (achado && $('mensagens')) { definirTopoDoChat(achado.chat); montarMensagens(achado.chat, false); montarAprovacoes(); }
         else desenhar();
       } else desenhar();
     } else definirTopoPc();
@@ -796,7 +936,16 @@ function agendar() {
   }, espera);
 }
 
-topo.voltar.addEventListener('click', voltarUma);
+topo.voltar.addEventListener('click', voltarNavegacao);
+window.addEventListener('popstate', () => {
+  if (historico.length > 0) voltarUma();
+  else if (rota.tipo !== 'inicio') {
+    rota = { tipo: 'inicio' };
+    folha = null;
+    desenhar('volta');
+    try { window.history.pushState({ hub: true }, ''); } catch { /* idem */ }
+  }
+});
 for (const botao of topo.abas.querySelectorAll('button')) {
   botao.addEventListener('click', () => {
     const aba = botao.dataset.aba;
@@ -811,6 +960,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) void
 aplicarAparencia();
 await terminarLogin();
 if (!configurado()) rota = { tipo: 'config' };
+try { window.history.replaceState({ hub: true }, ''); } catch { /* idem */ }
 desenhar();
 void carregar();
 agendar();

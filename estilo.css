@@ -193,6 +193,25 @@ label { color: var(--suave); font-size: 0.85rem; }
 .barra.warning i { background: var(--aviso); }
 .barra.exceeded i { background: var(--erro); }
 
+/* modelo, aprovações, voz */
+.barra-modelo { display: flex; padding: 6px 10px 0; background: var(--painel); }
+.modelo-chip { background: var(--elevado); border: 0; border-radius: 99px; padding: 6px 12px; font-size: 0.8rem; color: var(--suave); }
+.faixa-pc { margin: 0; padding: 6px 12px; background: color-mix(in srgb, var(--aviso) 18%, var(--painel)); font-size: 0.8rem; text-align: center; }
+#aprovacoes:empty { display: none; }
+#aprovacoes { background: var(--painel); padding: 8px 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.aprovacao { background: color-mix(in srgb, var(--aviso) 16%, var(--painel)); border: 1px solid color-mix(in srgb, var(--aviso) 45%, transparent); border-radius: 16px; padding: 12px; animation: pop 0.25s ease; }
+.aprovacao p { margin: 0 0 10px; }
+.redondo.gravando { background: var(--erro); animation: pulso 1.1s infinite; }
+.redondo.mic { background: var(--destaque); }
+#abas button.aviso::after { content: ''; position: absolute; top: 4px; margin-left: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--aviso); }
+#abas button { position: relative; }
+.esqueleto { display: flex; align-items: center; gap: 12px; background: var(--painel); border: 1px solid var(--linha); border-radius: 18px; padding: 10px; min-height: 66px; }
+.esqueleto i, .esqueleto span { display: block; border-radius: 12px; background: linear-gradient(90deg, var(--elevado), color-mix(in srgb, var(--elevado) 60%, var(--texto) 10%), var(--elevado)); background-size: 200% 100%; animation: brilho 1.4s infinite linear; }
+.esqueleto i { width: 48px; height: 48px; border-radius: 50%; flex: none; }
+.esqueleto span { flex: 1; height: 28px; }
+@keyframes pulso { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--erro) 55%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
+@keyframes brilho { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
 /* movimento */
 #tela.entra-frente > * { animation: entra-frente 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 #tela.entra-volta > * { animation: entra-volta 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
