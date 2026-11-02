@@ -1,7 +1,7 @@
 {
-  "version": "0.58.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.58.1.exe",
-  "notes": "- Corrige \"Não encontrei o servidor MCP do Godot\" mesmo com o servidor instalado. A busca passa a usar a pasta AppData\\Local do usuário quando a variável LOCALAPPDATA não chega ao Hub.\n- Quando algo falta com as ferramentas ligadas, o log registra o caminho procurado e a variável LOCALAPPDATA, para diagnóstico.",
-  "size": 89038071,
-  "sha256": "c4458c9b45052249edd21794459cb4926ff8eb81943296c683d8d12e63553122"
+  "version": "0.58.2",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.58.2.exe",
+  "notes": "- Diagnóstico do servidor MCP do Godot: quando ele não é achado com as ferramentas ligadas, o log registra se o arquivo existe, o código do erro de leitura, o usuário e o programa em uso.",
+  "size": 89038264,
+  "sha256": "07f50071fc8953cfb365eeeb36b33c266befa88dd70af7e1fff69b0da68eb07e"
 }
