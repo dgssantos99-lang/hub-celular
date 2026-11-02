@@ -1,0 +1,5 @@
+{
+  "version": "0.55.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.55.0.exe",
+  "notes": "- Chat: ao lado do seletor de modelo aparece \"em uso: …\", com o modelo que o Claude informou na última resposta. Assim dá para confirmar qual modelo respondeu, mesmo que o seletor mostre outro."
+}
