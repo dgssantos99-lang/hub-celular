@@ -40,9 +40,6 @@ let ids = { entrada: null, estado: null, arquivos: null };
 let rota = estado ? lerRotaSalva() : { tipo: 'inicio' };
 let historico = [];
 const respondidas = new Set(); // approvals answered from here, hidden at once
-let gravacao = null; // the voice message being recorded
-let vozEstado = ''; // '', 'gravando' or 'transcrevendo'
-let vozPedido = null;
 let aviso = '';
 let folha = null;
 let pendentes = []; // messages sent from here that the PC has not shown yet
@@ -612,7 +609,6 @@ function desenharChat(rascunho) {
   const clipe = el('button', { class: 'clipe', 'aria-label': 'Anexar arquivo', onclick: () => escolherArquivo(anexar) }, '📎');
   const atualizarBotao = () => atualizarEstadoDoChat();
   botao.addEventListener('click', async () => {
-    if (botao.classList.contains('mic') || botao.classList.contains('gravando')) { void alternarGravacao(); return; }
     if (botao.classList.contains('parar')) { void enviarPedido({ ...novoPedido('parar', chat.id), assistente }).catch((erro) => { aviso = erro.message; desenhar(); }); return; }
     const texto = caixa.value.trim();
     const prontos = anexos.filter((a) => a.estado === 'ok');
@@ -674,161 +670,22 @@ function responderAprovacao(item, aceitar) {
     .catch((erro) => { respondidas.delete(item.id); aviso = erro.message; montarAprovacoes(); avisoRapido(erro.message); });
 }
 
-/** The send button is a microphone when there is nothing to send, and a stop when the chat is answering. */
+/** The send button: a stop while the chat is answering with nothing to send, otherwise send. */
 function estadoDoBotao(chat) {
   const botao = $('enviar');
   const caixa = $('texto');
   if (!botao || !caixa) return;
   const vazio = caixa.value.trim() === '' && anexos.length === 0;
   const parando = chat.ocupado && vazio;
-  const mic = vazio && !chat.ocupado;
-  botao.classList.toggle('parar', parando && vozEstado === '');
-  botao.classList.toggle('mic', mic && vozEstado === '');
-  botao.classList.toggle('gravando', vozEstado === 'gravando');
-  const simbolo = vozEstado === 'gravando' ? '■' : vozEstado === 'transcrevendo' ? '…' : parando ? '■' : mic ? '🎤' : '➤';
-  botao.firstChild.textContent = simbolo;
-  botao.setAttribute('aria-label', vozEstado === 'gravando' ? 'Parar a gravação' : parando ? 'Parar a resposta' : mic ? 'Gravar mensagem de voz' : 'Enviar');
-  botao.disabled = vozEstado === 'transcrevendo' || anexos.some((a) => a.estado === 'enviando');
-  caixa.placeholder = vozEstado === 'gravando' ? 'Gravando… toque em ■ para parar' : vozEstado === 'transcrevendo' ? 'Transcrevendo no PC…' : 'Mensagem';
-}
-
-/** The phone's own speech recognition, when the browser has it (Chrome on Android). */
-const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-
-/** "celular" uses the phone's recognition, "pc" sends the recording to the Whisper on the PC. */
-function modoDeVoz() {
-  // The key is new on purpose: a choice saved by an older version of the page must not keep sending audio to the PC.
-  const salvo = guardado.ler('vozModo');
-  if (salvo === 'pc' || salvo === 'celular') return salvo;
-  return 'celular';
-}
-
-/**
- * Writes what the phone's recognition hears straight into the message box, as it hears it, so the person
- * sees the words while speaking. Pressing the button again stops it; the text stays to be sent or edited.
- */
-function ouvirDoCelular() {
-  const caixa0 = $('texto');
-  const base = caixa0 && caixa0.value.trim() ? `${caixa0.value.trim()} ` : '';
-  const reconhecedor = new Reconhecimento();
-  reconhecedor.lang = 'pt-BR';
-  reconhecedor.interimResults = true;
-  reconhecedor.continuous = true;
-  reconhecedor.maxAlternatives = 1;
-  let final = '';
-  reconhecedor.onresult = (evento) => {
-    let provisorio = '';
-    final = '';
-    for (const resultado of evento.results) {
-      if (resultado.isFinal) final += resultado[0].transcript;
-      else provisorio += resultado[0].transcript;
-    }
-    const caixa = $('texto');
-    if (caixa) {
-      caixa.value = `${base}${final}${provisorio}`.replace(/s+/g, ' ').replace(/^ /, '');
-      caixa.dispatchEvent(new Event('input'));
-    }
-  };
-  reconhecedor.onerror = (evento) => {
-    const mensagens = {
-      'no-speech': 'Não ouvi nada. Toque no microfone e fale.',
-      'not-allowed': 'Permita o microfone nas configurações do Chrome.',
-      'audio-capture': 'Não encontrei o microfone.',
-      network: 'O reconhecimento precisa de internet. Verifique a conexão.',
-    };
-    avisoRapido(mensagens[evento.error] || `O reconhecimento parou (${evento.error}).`);
-  };
-  reconhecedor.onend = () => {
-    gravacao = null;
-    vozEstado = '';
-    atualizarEstadoDoChat();
-    $('texto')?.focus();
-  };
-  gravacao = { reconhecedor };
-  vozEstado = 'gravando';
-  try {
-    reconhecedor.start();
-    vibrar();
-  } catch {
-    gravacao = null;
-    vozEstado = '';
-    avisoRapido('Não consegui iniciar o microfone. Tente de novo.');
-  }
-  atualizarEstadoDoChat();
-}
-
-/** Records the person's voice; the PC turns it into text and the text goes into the box, ready to edit. */
-async function alternarGravacao() {
-  if (vozEstado === 'gravando' && gravacao?.reconhecedor) { gravacao.reconhecedor.stop(); return; }
-  if (vozEstado === 'gravando' && gravacao) { gravacao.recorder.stop(); return; }
-  if (modoDeVoz() === 'celular') {
-    if (Reconhecimento) { ouvirDoCelular(); return; }
-    // Said out loud, so the person knows why the audio goes to the PC this time.
-    avisoRapido('Este navegador não tem reconhecimento de voz. Use o Chrome; por enquanto a fala vai para o PC.');
-  }
-  if (estado && !estado.vozPronta) { avisoRapido('O PC ainda não tem o modelo de voz. No Hub, abra um chat e toque em Falar para baixar.'); return; }
-  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { avisoRapido('Este navegador não grava áudio.'); return; }
-  try {
-    const fluxo = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const tipo = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((item) => MediaRecorder.isTypeSupported(item)) || '';
-    const recorder = new MediaRecorder(fluxo, tipo ? { mimeType: tipo } : undefined);
-    const pedacos = [];
-    recorder.ondataavailable = (evento) => { if (evento.data.size > 0) pedacos.push(evento.data); };
-    recorder.onstop = () => {
-      for (const faixa of fluxo.getTracks()) faixa.stop();
-      gravacao = null;
-      const blob = new Blob(pedacos, { type: recorder.mimeType || 'audio/webm' });
-      if (blob.size < 800) { vozEstado = ''; atualizarEstadoDoChat(); avisoRapido('Não ouvi nada. Tente de novo.'); return; }
-      void transcrever(blob);
-    };
-    gravacao = { recorder };
-    vozEstado = 'gravando';
-    recorder.start();
-    vibrar();
-    atualizarEstadoDoChat();
-  } catch (erro) {
-    vozEstado = '';
-    avisoRapido(erro.name === 'NotAllowedError' ? 'Permita o microfone nas configurações do navegador.' : `Não consegui gravar: ${erro.message}`);
-    atualizarEstadoDoChat();
-  }
+  botao.classList.toggle('parar', parando);
+  botao.firstChild.textContent = parando ? '■' : '➤';
+  botao.setAttribute('aria-label', parando ? 'Parar a resposta' : 'Enviar');
+  botao.disabled = anexos.some((a) => a.estado === 'enviando') || (!parando && vazio);
 }
 
 function atualizarEstadoDoChat() {
   const achado = chatAtual();
   estadoDoBotao(achado?.chat ?? { ocupado: false });
-}
-
-async function transcrever(blob) {
-  vozEstado = 'transcrevendo';
-  atualizarEstadoDoChat();
-  try {
-    const extensao = blob.type.includes('mp4') ? 'm4a' : 'webm';
-    const arquivo = new File([blob], `fala-${Date.now()}.${extensao}`, { type: blob.type });
-    const driveId = await enviarArquivoAoDrive(arquivo, () => undefined);
-    const pedido = { ...novoPedido('transcrever', 0), driveId, nome: arquivo.name };
-    vozPedido = pedido.id;
-    await enviarPedido(pedido);
-    setTimeout(() => { if (vozPedido === pedido.id && vozEstado === 'transcrevendo') { vozPedido = null; vozEstado = ''; avisoRapido('O PC não respondeu a tempo. Tente de novo.'); atualizarEstadoDoChat(); } }, 120_000);
-  } catch (erro) {
-    vozPedido = null;
-    vozEstado = '';
-    avisoRapido(erro.message);
-    atualizarEstadoDoChat();
-  }
-}
-
-/** When the PC's answer to a voice message arrives, the text goes into the message box. */
-function aplicarVoz() {
-  if (!vozPedido) return;
-  const resultado = estado?.resultados?.[vozPedido];
-  if (!resultado) return;
-  vozPedido = null;
-  vozEstado = '';
-  if (resultado.ok && resultado.texto) {
-    const caixa = $('texto');
-    if (caixa) { caixa.value = caixa.value ? `${caixa.value} ${resultado.texto}` : resultado.texto; caixa.dispatchEvent(new Event('input')); caixa.focus(); }
-  } else avisoRapido(resultado.mensagem || 'Não consegui transcrever.');
-  atualizarEstadoDoChat();
 }
 
 function anexar(lista) {
@@ -932,13 +789,6 @@ function desenharAjustes() {
       botao.querySelector('.amostra').style.background = `linear-gradient(135deg, ${tema.amostra[0]} 55%, ${tema.amostra[1]} 55%)`;
       return botao;
     })),
-    el('h2', { class: 'secao' }, 'Voz'),
-    el('div', { class: 'cartao' },
-      el('p', { class: 'suave pequeno' }, Reconhecimento ? 'Quem entende a sua fala:' : 'Este navegador não tem reconhecimento de voz; a fala vai para o PC.'),
-      el('div', { class: 'temas', role: 'radiogroup', 'aria-label': 'Reconhecimento de voz' },
-        el('button', { class: `tema${modoDeVoz() === 'celular' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'celular'), disabled: !Reconhecimento, onclick: () => { guardado.gravar('vozModo', 'celular'); desenhar(); } }, 'Este celular'),
-        el('button', { class: `tema${modoDeVoz() === 'pc' ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(modoDeVoz() === 'pc'), onclick: () => { guardado.gravar('vozModo', 'pc'); desenhar(); } }, 'PC (Whisper)')),
-      el('p', { class: 'suave pequeno' }, 'Este celular é mais rápido, mas precisa de internet e usa o reconhecimento do Chrome. O PC é mais preciso, mas precisa estar ligado e leva alguns segundos.')),
     el('p', { class: 'suave pequeno' }, 'Cor de destaque'),
     el('div', { class: 'grade-cores', role: 'radiogroup', 'aria-label': 'Cor de destaque' },
       el('button', { class: `auto${guardado.ler('cor') ? '' : ' ativo'}`, 'aria-label': 'Cor do tema', onclick: () => { guardado.apagar('cor'); aplicarAparencia(); desenhar(); } }, 'A'),
@@ -979,7 +829,6 @@ async function carregar() {
     estado = novo;
     assinatura = sem;
     try { const texto = JSON.stringify(novo); if (texto.length < 1_500_000) guardado.gravar('estadoCache', texto); } catch { /* sem cache */ }
-    aplicarVoz();
     aviso = aviso && !aviso.startsWith('Enviando') ? '' : aviso;
     if (primeiro || (mudou && !folha)) {
       if (rota.tipo === 'chat' || rota.tipo === 'assistente') {
