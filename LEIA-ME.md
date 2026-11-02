@@ -4,10 +4,12 @@ Uma página que você instala no Android e que conversa com os chats do Hub **us
 
 ## O que funciona
 
-- Criar projetos, trabalhos (com modelo de cargos) e chats (com cargo, tipo e ícone), e ver as últimas mensagens de cada chat.
-- Mandar mensagem para um chat e parar a resposta.
+- Projetos, trabalhos e chats: ver, criar (trabalho com modelo de cargos, chat com cargo, tipo e ícone), renomear e mandar para a lixeira.
+- Conversar com os chats em tela estilo mensageiro, mandar fotos, áudios e arquivos junto da mensagem, e parar a resposta.
+- Trocar o ícone e o modelo do Claude de cada chat, e enviar arquivos do celular para um trabalho.
 - Ver, ouvir e baixar os arquivos do trabalho que estão no Drive (imagem, áudio, vídeo, texto).
-- O assistente geral **não** aparece no celular, de propósito: ele é o único que mexe no app inteiro.
+- O **assistente geral** está na aba Assistente. As ações que ele pede com aprovação continuam sendo aprovadas só no PC.
+- Temas, cor de destaque e o gasto do mês.
 
 ## O que precisa estar ligado
 
@@ -15,13 +17,18 @@ O PC ligado, o Hub aberto e o Google Drive conectado. No Hub: painel do Google D
 
 ## Instalação (uma vez)
 
-1. **Hospedar a página.** O login do Google só funciona em endereço `https`. O jeito gratuito é o GitHub Pages: crie um repositório, coloque dentro os arquivos desta pasta (`index.html`, `app.js`, `logica.js`, `estilo.css`, `sw.js`, `manifest.webmanifest`, `icone.svg`) e ligue o Pages em Settings › Pages. O endereço será parecido com `https://seu-usuario.github.io/hub-celular/`.
-2. **Criar o cliente do Google.** No Google Cloud, no mesmo projeto do Hub: APIs e serviços › Credenciais › Criar credenciais › ID do cliente OAuth › tipo **Aplicativo da Web**. Em "Origens JavaScript autorizadas" coloque só a origem, sem caminho (por exemplo `https://seu-usuario.github.io`). Copie o ID do cliente.
-3. **Tela de consentimento em produção.** Em "Tela de permissão OAuth", mude de "Em teste" para "Em produção". Sem isso o login vence a cada 7 dias.
-4. **No celular:** abra o endereço no Chrome, cole o ID do cliente, entre com a **mesma conta do Google** que o Hub usa, e toque em ⋮ › **Adicionar à tela inicial**.
+1. **Hospedar a página.** O login do Google só funciona em endereço `https`. O jeito gratuito é o GitHub Pages: crie um repositório público, coloque dentro os arquivos desta pasta e ligue o Pages em Settings › Pages. O endereço será parecido com `https://seu-usuario.github.io/hub-celular/`.
+2. **Criar o cliente do Google.** No Google Cloud, no mesmo projeto do Hub: APIs e serviços › Credenciais › Criar credenciais › ID do cliente OAuth › tipo **Aplicativo da Web**.
+   - Em **Origens JavaScript autorizadas**: só a origem, sem caminho (por exemplo `https://seu-usuario.github.io`).
+   - Em **URIs de redirecionamento autorizados**: o endereço completo da página, com a barra no final (por exemplo `https://seu-usuario.github.io/hub-celular/`). A tela de configuração da página mostra o endereço exato e tem o botão de copiar.
+   - Copie o **ID do cliente** e a **chave secreta**.
+3. **Tela de consentimento em produção.** Em "Tela de permissão OAuth", mude de "Em teste" para "Em produção". Sem isso a permissão duradoura vence a cada 7 dias.
+4. **No celular:** abra o endereço no Chrome, cole o ID e a chave secreta (ficam só no aparelho), toque em **Entrar com o Google** e aceite. Depois use ⋮ › **Adicionar à tela inicial**.
+
+O login fica guardado: a página renova o próprio acesso sozinha e não pede para entrar de novo, a não ser que você revogue o acesso na sua conta do Google.
 
 ## Segurança
 
-- Quem tem acesso de edição à pasta `Hub/Ponte` pode mandar mensagens aos chats. Não compartilhe essa pasta.
-- O login do celular é guardado só no navegador do aparelho e vale por cerca de 1 hora; a página pede de novo sozinha.
-- As ações que o assistente geral pede com aprovação continuam só no PC.
+- Quem tem acesso de edição à pasta `Hub/Ponte` pode mandar mensagens aos chats, inclusive ao assistente. Não compartilhe essa pasta.
+- O ID, a chave secreta e a permissão duradoura ficam só no navegador do aparelho. Se perder o celular, revogue o acesso em myaccount.google.com/permissions.
+- Aprovações de ações do assistente continuam só no PC.

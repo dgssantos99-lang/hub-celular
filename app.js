@@ -1,96 +1,109 @@
-import { CORES, ICONES, acharChat, haQuanto, inicial, lerAvatar, montarAvatar, novoPedido, pcPresente, tamanhoLegivel, tipoDoArquivo } from './logica.js';
+import {
+  CORES, ICONES, TEMAS, acharChat, dinheiro, haQuanto, hora, horaDaLista, inicial, lerAvatar, lerData, lerTexto,
+  montarAvatar, novoPedido, pcPresente, rotuloDia, situacaoDoChat, tamanhoLegivel, tipoDoArquivo,
+} from './logica.js';
+import { aleatorio, enderecoDeLogin, enderecoDeRetorno, renovar, trocarCodigo } from './entrar.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive';
 const DRIVE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const POLL_MS = 5000;
 const POLL_RAPIDO_MS = 2000;
 
-const tela = document.getElementById('tela');
-const titulo = document.getElementById('titulo');
-const voltar = document.getElementById('voltar');
-const pcSelo = document.getElementById('pc');
+const $ = (id) => document.getElementById(id);
+const tela = $('tela');
+const topo = { voltar: $('voltar'), menu: $('menu'), titulo: $('titulo'), sub: $('subtitulo'), avatar: $('topo-avatar'), pc: $('pc'), abas: $('abas') };
 
 const guardado = {
-  ler(chave) {
-    try { return localStorage.getItem(chave); } catch { return null; }
-  },
-  gravar(chave, valor) {
-    try { localStorage.setItem(chave, valor); } catch { /* sem armazenamento: segue sem lembrar */ }
-  },
-  apagar(chave) {
-    try { localStorage.removeItem(chave); } catch { /* idem */ }
-  },
+  ler(chave) { try { return localStorage.getItem(chave); } catch { return null; } },
+  gravar(chave, valor) { try { localStorage.setItem(chave, valor); } catch { /* sem armazenamento: segue sem lembrar */ } },
+  apagar(chave) { try { localStorage.removeItem(chave); } catch { /* idem */ } },
 };
 
-let token = guardado.ler('token');
-let tokenAte = Number(guardado.ler('tokenAte') || 0);
-let pedidoDeToken = null;
-let precisaEntrar = false;
+const sessao = {
+  token: guardado.ler('token'),
+  ate: Number(guardado.ler('tokenAte') || 0),
+  renovando: null,
+};
 let estado = null;
-let ids = { entrada: null, estado: null };
+let assinatura = '';
+let ids = { entrada: null, estado: null, arquivos: null };
 let rota = { tipo: 'inicio' };
+let historico = [];
 let aviso = '';
-let folha = null; // the open creation sheet
+let folha = null;
 let pendentes = []; // messages sent from here that the PC has not shown yet
+let anexos = []; // files chosen for the next message
+let vistas = new Map(); // last message id drawn for each chat, to animate only the new ones
 let rapidoAte = 0;
 let carregando = false;
+let precisaEntrar = false;
 
-// ---------- login (Google Identity Services)
+// ---------- login que dura
 
-function esperarGoogle() {
-  return new Promise((resolve) => {
-    const tentar = () => (window.google?.accounts?.oauth2 ? resolve() : setTimeout(tentar, 150));
-    tentar();
-  });
+function configurado() { return Boolean(guardado.ler('clientId') && guardado.ler('segredo')); }
+
+function dadosDoCliente() {
+  return { clientId: guardado.ler('clientId'), segredo: guardado.ler('segredo'), retorno: enderecoDeRetorno() };
 }
 
-function pedirToken(prompt) {
-  const clientId = guardado.ler('clientId');
-  if (!clientId) return Promise.reject(new Error('Falta o ID do cliente do Google.'));
-  return esperarGoogle().then(() => new Promise((resolve, reject) => {
-    const cliente = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPE,
-      callback: (resposta) => {
-        if (resposta.error) return reject(new Error(resposta.error_description || resposta.error));
-        token = resposta.access_token;
-        tokenAte = Date.now() + (Number(resposta.expires_in) - 120) * 1000;
-        guardado.gravar('token', token);
-        guardado.gravar('tokenAte', String(tokenAte));
-        guardado.gravar('logado', '1');
-        precisaEntrar = false;
-        resolve();
-      },
-      error_callback: (erro) => reject(new Error(erro.message || erro.type || 'Login cancelado.')),
-    });
-    cliente.requestAccessToken({ prompt });
-  }));
+async function iniciarLogin() {
+  const estadoAleatorio = aleatorio(24);
+  const verificador = aleatorio(48);
+  guardado.gravar('login', JSON.stringify({ estado: estadoAleatorio, verificador }));
+  window.location.href = await enderecoDeLogin({ ...dadosDoCliente(), estado: estadoAleatorio, verificador });
 }
 
-/** The token lives for an hour. It is kept on the phone, so reloading the page does not ask for the login again. */
-async function garantirToken() {
-  if (token && Date.now() < tokenAte) return;
-  if (!pedidoDeToken) {
-    // Without a tap the browser may refuse to open the Google window; then the button "Continuar" asks with a tap.
-    pedidoDeToken = pedirToken(guardado.ler('logado') === '1' ? '' : 'consent')
-      .catch((erro) => { precisaEntrar = true; throw erro; })
-      .finally(() => { pedidoDeToken = null; });
+function guardarToken(dados) {
+  sessao.token = dados.access_token;
+  sessao.ate = Date.now() + (Number(dados.expires_in || 3600) - 120) * 1000;
+  guardado.gravar('token', sessao.token);
+  guardado.gravar('tokenAte', String(sessao.ate));
+  if (dados.refresh_token) guardado.gravar('renovacao', dados.refresh_token);
+  precisaEntrar = false;
+}
+
+/** Back from Google's page with ?code=...: finishes the login and cleans the address. */
+async function terminarLogin() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('code') && !params.has('error')) return;
+  const limpo = enderecoDeRetorno();
+  window.history.replaceState(null, '', limpo);
+  if (params.has('error')) { aviso = `O Google recusou o login: ${params.get('error')}.`; return; }
+  let salvo = null;
+  try { salvo = JSON.parse(guardado.ler('login') || 'null'); } catch { salvo = null; }
+  guardado.apagar('login');
+  if (!salvo || salvo.estado !== params.get('state')) { aviso = 'O login não confere. Tente entrar de novo.'; return; }
+  try {
+    guardarToken(await trocarCodigo({ ...dadosDoCliente(), codigo: params.get('code'), verificador: salvo.verificador }));
+    if (!guardado.ler('renovacao')) aviso = 'O Google não deu a permissão duradoura. Entre de novo e aceite tudo.';
+  } catch (erro) {
+    aviso = `Não consegui terminar o login: ${erro.message}`;
   }
-  await pedidoDeToken;
+}
+
+/** A valid access token, renewed on its own with the refresh token. */
+async function garantirToken() {
+  if (sessao.token && Date.now() < sessao.ate) return;
+  const renovacao = guardado.ler('renovacao');
+  if (!renovacao || !configurado()) { precisaEntrar = true; throw new Error('Entre com o Google para continuar.'); }
+  if (!sessao.renovando) {
+    sessao.renovando = renovar({ ...dadosDoCliente(), renovacao })
+      .then(guardarToken)
+      .catch((erro) => {
+        if (erro.codigo === 'invalid_grant') { guardado.apagar('renovacao'); guardado.apagar('token'); sessao.token = null; precisaEntrar = true; }
+        throw new Error(erro.codigo === 'invalid_grant' ? 'O Google pediu para entrar de novo.' : erro.message);
+      })
+      .finally(() => { sessao.renovando = null; });
+  }
+  await sessao.renovando;
 }
 
 // ---------- Drive
 
 async function drive(url, opcoes = {}) {
   await garantirToken();
-  const resposta = await fetch(url, { ...opcoes, headers: { ...(opcoes.headers || {}), authorization: `Bearer ${token}` } });
-  if (resposta.status === 401) {
-    token = null;
-    guardado.apagar('token');
-    precisaEntrar = true;
-    throw new Error('O login venceu. Toque em Continuar.');
-  }
+  const resposta = await fetch(url, { ...opcoes, headers: { ...(opcoes.headers || {}), authorization: `Bearer ${sessao.token}` } });
+  if (resposta.status === 401) { sessao.token = null; sessao.ate = 0; throw new Error('O Google recusou o acesso. Tente de novo.'); }
   if (!resposta.ok) throw new Error(`O Google respondeu ${resposta.status}.`);
   return resposta;
 }
@@ -104,23 +117,21 @@ async function acharPasta(nome, paiId) {
 }
 
 async function descobrirPonte() {
-  if (ids.entrada && ids.estado) return true;
+  if (ids.entrada && ids.estado && ids.arquivos) return true;
   let pai = 'root';
   for (const nome of ['Hub', 'Ponte']) {
     pai = await acharPasta(nome, pai);
     if (!pai) return false;
   }
-  const entrada = await acharPasta('entrada', pai);
   const q = `name = 'estado.json' and '${pai}' in parents and trashed = false`;
   const r = await (await drive(`${DRIVE}/files?${new URLSearchParams({ q, fields: 'files(id)', pageSize: '1' })}`)).json();
-  ids = { entrada, estado: r.files?.[0]?.id ?? null };
-  return Boolean(ids.entrada && ids.estado);
+  ids = { entrada: await acharPasta('entrada', pai), arquivos: await acharPasta('arquivos', pai), estado: r.files?.[0]?.id ?? null };
+  return Boolean(ids.entrada && ids.estado && ids.arquivos);
 }
 
 async function lerEstado() {
-  if (!(await descobrirPonte())) throw new Error('Não achei a pasta Hub/Ponte. No PC, ligue "Deixar o celular usar este PC" no painel do Google Drive.');
-  const r = await drive(`${DRIVE}/files/${ids.estado}?alt=media`, { cache: 'no-store' });
-  return r.json();
+  if (!(await descobrirPonte())) throw new Error('Não achei a pasta Hub/Ponte. No PC, ligue "Deixar o celular usar este PC" no painel do Google Drive e atualize o Hub.');
+  return (await drive(`${DRIVE}/files/${ids.estado}?alt=media`, { cache: 'no-store' })).json();
 }
 
 async function enviarPedido(pedido) {
@@ -132,16 +143,53 @@ async function enviarPedido(pedido) {
     `--${limite}`, 'Content-Type: application/json; charset=UTF-8', '', JSON.stringify(pedido),
     `--${limite}--`,
   ].join('\r\n');
-  await drive(`${UPLOAD}/files?uploadType=multipart`, {
-    method: 'POST',
-    headers: { 'content-type': `multipart/related; boundary=${limite}` },
-    body: corpo,
-  });
+  await drive(`${UPLOAD}/files?uploadType=multipart`, { method: 'POST', headers: { 'content-type': `multipart/related; boundary=${limite}` }, body: corpo });
   rapidoAte = Date.now() + 40_000;
 }
 
-async function baixar(driveId) {
-  return (await drive(`${DRIVE}/files/${driveId}?alt=media`)).blob();
+/** Sends a file of the phone to the bridge folder, with progress. Returns its Drive id. */
+async function enviarArquivoAoDrive(arquivo, aoProgredir) {
+  if (!(await descobrirPonte())) throw new Error('A ponte do PC ainda não está pronta.');
+  const inicio = await drive(`${UPLOAD}/files?uploadType=resumable`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json; charset=UTF-8', 'x-upload-content-type': arquivo.type || 'application/octet-stream', 'x-upload-content-length': String(arquivo.size) },
+    body: JSON.stringify({ name: arquivo.name, parents: [ids.arquivos] }),
+  });
+  const endereco = inicio.headers.get('location');
+  if (!endereco) throw new Error('O Google não abriu o envio do arquivo.');
+  return new Promise((resolve, reject) => {
+    const pedido = new XMLHttpRequest();
+    pedido.open('PUT', endereco);
+    pedido.upload.onprogress = (evento) => { if (evento.lengthComputable) aoProgredir(evento.loaded / evento.total); };
+    pedido.onload = () => {
+      if (pedido.status >= 200 && pedido.status < 300) {
+        try { resolve(JSON.parse(pedido.responseText).id); } catch { reject(new Error('Resposta estranha do Google.')); }
+      } else reject(new Error(`O Google respondeu ${pedido.status} no envio.`));
+    };
+    pedido.onerror = () => reject(new Error('A conexão caiu durante o envio.'));
+    pedido.send(arquivo);
+  });
+}
+
+async function baixar(driveId) { return (await drive(`${DRIVE}/files/${driveId}?alt=media`)).blob(); }
+
+// ---------- aparência
+
+function textoSobre(cor) {
+  const n = Number.parseInt(cor.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#07101c' : '#ffffff';
+}
+
+function aplicarAparencia() {
+  const tema = guardado.ler('tema') || (window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'claro' : 'noite');
+  document.documentElement.dataset.tema = tema;
+  const cor = guardado.ler('cor');
+  const raiz = document.documentElement.style;
+  if (cor && CORES.includes(cor)) { raiz.setProperty('--destaque', cor); raiz.setProperty('--destaque-texto', textoSobre(cor)); }
+  else { raiz.removeProperty('--destaque'); raiz.removeProperty('--destaque-texto'); }
+  const fundo = getComputedStyle(document.documentElement).getPropertyValue('--fundo').trim();
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', fundo || '#0a111f');
 }
 
 // ---------- pedaços de tela
@@ -157,64 +205,86 @@ function el(tag, atributos = {}, ...filhos) {
   return no;
 }
 
-function ir(nova) {
-  rota = nova;
-  folha = null;
-  desenhar();
+function corDoNome(nome) {
+  let h = 0;
+  for (const letra of nome) h = (h * 31 + letra.codePointAt(0)) % 360;
+  return `hsl(${h} 55% 45%)`;
 }
 
-function selo(chat, grande) {
-  const avatar = lerAvatar(chat.avatar);
-  const no = el('span', { class: `selo-chat${grande ? ' grande' : ''}`, 'aria-hidden': 'true' }, avatar ? avatar.emoji : inicial(chat.titulo));
-  if (avatar) no.style.background = `${avatar.cor}33`;
+function bolinha(texto, { cor, emoji, grande } = {}) {
+  const no = el('span', { class: `bolinha${grande ? ' grande' : ''}`, 'aria-hidden': 'true' }, emoji || inicial(texto));
+  no.style.background = cor || corDoNome(texto);
   return no;
 }
 
-function botaoMais(texto, aoClicar) {
-  return el('button', { class: 'novo', onclick: aoClicar }, el('span', { 'aria-hidden': 'true' }, '+'), texto);
+function bolinhaDoChat(chat, grande) {
+  const avatar = lerAvatar(chat.avatar);
+  return avatar ? bolinha(chat.titulo, { emoji: avatar.emoji, cor: `${avatar.cor}`, grande }) : bolinha(chat.titulo, { grande });
 }
 
-function pedir(pedido, textoDeAviso) {
+function ir(nova, voltando = false) {
+  if (!voltando) historico.push(rota);
+  rota = nova;
+  folha = null;
+  desenhar(voltando ? 'volta' : 'frente');
+}
+
+function voltarUma() {
+  const anterior = historico.pop() ?? { tipo: 'inicio' };
+  rota = anterior;
+  folha = null;
+  desenhar('volta');
+}
+
+/** A short message that fades by itself. */
+function avisoRapido(texto) {
+  const caixa = el('div', { class: 'toast', role: 'status' }, texto);
+  document.body.append(caixa);
+  setTimeout(() => caixa.remove(), 3200);
+}
+
+function vibrar() { try { navigator.vibrate?.(8); } catch { /* sem vibração */ } }
+
+function pedir(pedido, texto) {
   return enviarPedido(pedido).then(() => {
     aviso = '';
-    pendentes.push({ id: pedido.id, texto: textoDeAviso });
     folha = null;
+    vibrar();
+    avisoRapido(texto);
     desenhar();
   }).catch((erro) => { aviso = erro.message; desenhar(); });
 }
 
-// ---------- folhas de criação
+// ---------- folhas (janelas que sobem de baixo)
 
-function folhaProjeto() {
-  const nome = el('input', { type: 'text', id: 'nome', placeholder: 'Nome do projeto', autocomplete: 'off', maxlength: '120' });
-  return { titulo: 'Novo projeto', corpo: [nome], confirmar: 'Criar projeto', ao: () => {
-    if (!nome.value.trim()) return;
-    void pedir({ ...novoPedido('criarProjeto', 0), nome: nome.value.trim() }, `Criando o projeto "${nome.value.trim()}"…`);
-  }, foco: nome };
+function abrirFolha(config) { folha = config; desenharFolha(); }
+function fecharFolha() { folha = null; $('folha')?.remove(); }
+
+function desenharFolha() {
+  $('folha')?.remove();
+  if (!folha) return;
+  const corpo = el('div', { class: 'folha', role: 'dialog', 'aria-modal': 'true', 'aria-label': folha.titulo },
+    el('div', { class: 'puxador', 'aria-hidden': 'true' }),
+    el('h2', {}, folha.titulo),
+    ...(folha.corpo || []),
+    folha.itens ? el('div', { class: 'menu-itens' }, ...folha.itens.map((item) => el('button', { class: `item${item.perigo ? ' perigo' : ''}`, onclick: () => { fecharFolha(); item.ao(); } }, item.rotulo))) : null,
+    folha.confirmar ? el('div', { class: 'acoes' },
+      el('button', { class: 'botao sec', onclick: fecharFolha }, 'Cancelar'),
+      el('button', { class: `botao${folha.perigo ? ' perigo' : ''}`, onclick: () => folha.ao() }, folha.confirmar)) : null,
+  );
+  const fundo = el('div', { id: 'folha', class: 'fundo-folha', onclick: (evento) => { if (evento.target === fundo) fecharFolha(); } }, corpo);
+  document.body.append(fundo);
+  setTimeout(() => folha?.foco?.focus(), 60);
 }
 
-function folhaTrabalho(projeto) {
-  const nome = el('input', { type: 'text', id: 'nome', placeholder: 'Nome do trabalho', autocomplete: 'off', maxlength: '120' });
-  const modelo = el('select', { id: 'modelo' }, ...(estado.modelos || []).map((item) => el('option', { value: item.id }, item.nome)));
-  const cargos = el('p', { class: 'suave pequeno' });
-  const mostrar = () => {
-    const achado = (estado.modelos || []).find((item) => item.id === modelo.value);
-    cargos.textContent = achado && achado.cargos.length ? `Cargos: ${achado.cargos.join(', ')}` : 'Sem cargos: você cria os chats depois.';
-  };
-  modelo.addEventListener('change', mostrar);
-  mostrar();
-  return { titulo: 'Novo trabalho', corpo: [nome, el('label', { for: 'modelo' }, 'Modelo'), modelo, cargos], confirmar: 'Criar trabalho', ao: () => {
-    if (!nome.value.trim()) return;
-    void pedir({ ...novoPedido('criarTrabalho', 0), projetoId: projeto.id, nome: nome.value.trim(), modelo: modelo.value }, `Criando o trabalho "${nome.value.trim()}"…`);
-  }, foco: nome };
+function campo(id, rotulo, valor = '', maximo = 120) {
+  return el('input', { type: 'text', id, placeholder: rotulo, 'aria-label': rotulo, value: valor, autocomplete: 'off', maxlength: String(maximo) });
 }
 
-function folhaChat(trabalho) {
-  const nome = el('input', { type: 'text', id: 'nome', placeholder: 'Nome do chat', autocomplete: 'off', maxlength: '120' });
-  const cargo = el('input', { type: 'text', id: 'cargo', placeholder: 'Cargo (ex.: Roteirista)', autocomplete: 'off', maxlength: '80' });
-  const tipo = el('select', { id: 'tipo' }, ...(estado.tiposChat || []).map((item) => el('option', { value: item.id }, item.nome)));
-  let icone = '';
-  let cor = CORES[0];
+function seletorDeIcone(inicialAvatar, aoMudar) {
+  const atual = lerAvatar(inicialAvatar);
+  let icone = atual ? Object.keys(ICONES).find((chave) => ICONES[chave] === atual.emoji) || '' : '';
+  let cor = atual?.cor || CORES[0];
   const grade = el('div', { class: 'grade-icones', role: 'radiogroup', 'aria-label': 'Ícone' });
   const cores = el('div', { class: 'grade-cores', role: 'radiogroup', 'aria-label': 'Cor' });
   const pintar = () => {
@@ -222,15 +292,16 @@ function folhaChat(trabalho) {
       const ativo = botao.dataset.icone === icone;
       botao.classList.toggle('ativo', ativo);
       botao.setAttribute('aria-checked', String(ativo));
-      botao.style.background = ativo ? `${cor}44` : '';
+      botao.style.background = ativo ? `${cor}55` : '';
     }
     for (const botao of cores.children) {
       botao.classList.toggle('ativo', botao.dataset.cor === cor);
       botao.setAttribute('aria-checked', String(botao.dataset.cor === cor));
     }
+    aoMudar(montarAvatar(icone, cor));
   };
-  for (const [nomeIcone, emoji] of Object.entries(ICONES)) {
-    grade.append(el('button', { type: 'button', role: 'radio', 'data-icone': nomeIcone, 'aria-label': nomeIcone, onclick: () => { icone = icone === nomeIcone ? '' : nomeIcone; pintar(); } }, emoji));
+  for (const [nome, emoji] of Object.entries(ICONES)) {
+    grade.append(el('button', { type: 'button', role: 'radio', 'data-icone': nome, 'aria-label': nome, onclick: () => { icone = icone === nome ? '' : nome; pintar(); } }, emoji));
   }
   for (const valor of CORES) {
     const botao = el('button', { type: 'button', role: 'radio', 'data-cor': valor, 'aria-label': `Cor ${valor}`, onclick: () => { cor = valor; pintar(); } });
@@ -238,185 +309,392 @@ function folhaChat(trabalho) {
     cores.append(botao);
   }
   pintar();
-  return { titulo: 'Novo chat', corpo: [nome, cargo, el('label', { for: 'tipo' }, 'Tipo'), tipo, el('p', { class: 'suave pequeno' }, 'Ícone (opcional)'), grade, cores], confirmar: 'Criar chat', ao: () => {
-    if (!nome.value.trim()) return;
-    void pedir({ ...novoPedido('criarChat', 0), trabalhoId: trabalho.id, titulo: nome.value.trim(), cargo: cargo.value.trim(), tipoChat: tipo.value, avatar: montarAvatar(icone, cor) }, `Criando o chat "${nome.value.trim()}"…`);
-  }, foco: nome };
+  return el('div', {}, el('p', { class: 'suave pequeno' }, 'Ícone (opcional)'), grade, cores);
 }
 
-function desenharFolha() {
-  if (!folha) return null;
-  const fechar = () => { folha = null; desenhar(); };
-  const caixa = el('div', { class: 'folha', role: 'dialog', 'aria-modal': 'true', 'aria-label': folha.titulo },
-    el('h2', {}, folha.titulo),
-    ...folha.corpo,
-    el('div', { class: 'acoes' },
-      el('button', { class: 'botao sec', onclick: fechar }, 'Cancelar'),
-      el('button', { class: 'botao', onclick: () => folha.ao() }, folha.confirmar)),
-  );
-  const fundo = el('div', { class: 'fundo-folha', onclick: (evento) => { if (evento.target === fundo) fechar(); } }, caixa);
-  setTimeout(() => folha?.foco?.focus(), 30);
-  return fundo;
+function folhaProjeto() {
+  const nome = campo('nome', 'Nome do projeto');
+  abrirFolha({ titulo: 'Novo projeto', corpo: [nome], confirmar: 'Criar projeto', foco: nome, ao: () => {
+    const valor = nome.value.trim();
+    if (valor) void pedir({ ...novoPedido('criarProjeto', 0), nome: valor }, `Criando o projeto "${valor}"…`);
+  } });
 }
 
-// ---------- telas
+function folhaTrabalho(projeto) {
+  const nome = campo('nome', 'Nome do trabalho');
+  const modelo = el('select', { id: 'modelo', 'aria-label': 'Modelo' }, ...(estado.modelos || []).map((item) => el('option', { value: item.id }, item.nome)));
+  const cargos = el('p', { class: 'suave pequeno' });
+  const mostrar = () => {
+    const achado = (estado.modelos || []).find((item) => item.id === modelo.value);
+    cargos.textContent = achado && achado.cargos.length ? `Cargos: ${achado.cargos.join(', ')}` : 'Sem cargos: você cria os chats depois.';
+  };
+  modelo.addEventListener('change', mostrar);
+  mostrar();
+  abrirFolha({ titulo: 'Novo trabalho', corpo: [nome, el('label', { for: 'modelo' }, 'Modelo de cargos'), modelo, cargos], confirmar: 'Criar trabalho', foco: nome, ao: () => {
+    const valor = nome.value.trim();
+    if (valor) void pedir({ ...novoPedido('criarTrabalho', 0), projetoId: projeto.id, nome: valor, modelo: modelo.value }, `Criando o trabalho "${valor}"…`);
+  } });
+}
 
-function desenhar() {
-  const estavaNoFim = tela.scrollHeight - tela.scrollTop - tela.clientHeight < 80;
-  const rascunho = document.getElementById('texto')?.value ?? '';
-  const folhaAberta = folha;
-  tela.replaceChildren();
-  voltar.hidden = rota.tipo === 'inicio' || rota.tipo === 'config';
-  pcSelo.className = `pc ${estado ? (pcPresente(estado) ? 'on' : 'off') : ''}`;
-  pcSelo.textContent = estado ? (pcPresente(estado) ? 'PC ligado' : `PC visto ${haQuanto(estado.atualizadoEm)}`) : '';
-  if (aviso) tela.append(el('p', { class: 'erro' }, aviso));
-  if (precisaEntrar && rota.tipo !== 'config') {
-    tela.append(el('div', { class: 'cartao' },
-      el('p', {}, 'Para continuar, confirme o login do Google. É só um toque.'),
-      el('button', { class: 'botao', onclick: () => void pedirToken('').then(() => carregar(false)).catch((erro) => { aviso = erro.message; desenhar(); }) }, 'Continuar')));
+function folhaChat(trabalho) {
+  const nome = campo('nome', 'Nome do chat');
+  const cargo = campo('cargo', 'Cargo (ex.: Roteirista)', '', 80);
+  const tipo = el('select', { id: 'tipo', 'aria-label': 'Tipo' }, ...(estado.tiposChat || []).map((item) => el('option', { value: item.id }, item.nome)));
+  let avatar = '';
+  abrirFolha({ titulo: 'Novo chat', corpo: [nome, cargo, el('label', { for: 'tipo' }, 'Tipo'), tipo, seletorDeIcone('', (valor) => { avatar = valor; })], confirmar: 'Criar chat', foco: nome, ao: () => {
+    const valor = nome.value.trim();
+    if (valor) void pedir({ ...novoPedido('criarChat', 0), trabalhoId: trabalho.id, titulo: valor, cargo: cargo.value.trim(), tipoChat: tipo.value, avatar }, `Criando o chat "${valor}"…`);
+  } });
+}
+
+function folhaRenomear(entidade, alvo, nomeAtual) {
+  const nome = campo('nome', 'Novo nome', nomeAtual);
+  abrirFolha({ titulo: 'Renomear', corpo: [nome], confirmar: 'Salvar', foco: nome, ao: () => {
+    const valor = nome.value.trim();
+    if (valor && valor !== nomeAtual) void pedir({ ...novoPedido('renomear', 0), entidade, alvo, nome: valor }, `Renomeando para "${valor}"…`);
+    else fecharFolha();
+  } });
+}
+
+function folhaLixeira(entidade, alvo, nome) {
+  abrirFolha({ titulo: `Enviar "${nome}" para a lixeira?`, corpo: [el('p', { class: 'suave' }, 'Fica na lixeira do Hub, no PC, e dá para restaurar de lá.')], confirmar: 'Enviar para a lixeira', perigo: true, ao: () => {
+    const antes = historico.length;
+    void pedir({ ...novoPedido('lixeira', 0), entidade, alvo }, `Enviando "${nome}" para a lixeira…`).then(() => {
+      if (historico.length === antes) voltarUma();
+    });
+  } });
+}
+
+function folhaChatAjustes(chat) {
+  let avatar = chat.avatar || '';
+  const modelo = el('select', { id: 'modelo', 'aria-label': 'Modelo do Claude' }, ...(estado.modelosClaude || []).map((item) => el('option', { value: item.id ?? '' }, item.nome)));
+  modelo.value = chat.modelo ?? '';
+  abrirFolha({ titulo: 'Ajustes do chat', corpo: [el('label', { for: 'modelo' }, 'Modelo do Claude'), modelo, seletorDeIcone(chat.avatar, (valor) => { avatar = valor; })], confirmar: 'Salvar', ao: () => {
+    const pedido = { ...novoPedido('ajustarChat', chat.id), avatar, modelo: modelo.value === '' ? null : modelo.value };
+    void pedir(pedido, 'Salvando ajustes do chat…');
+  } });
+}
+
+function escolherArquivo(aoEscolher) {
+  const entrada = el('input', { type: 'file', multiple: true, style: 'display:none' });
+  entrada.addEventListener('change', () => { aoEscolher([...entrada.files]); entrada.remove(); });
+  document.body.append(entrada);
+  entrada.click();
+}
+
+// ---------- topo e navegação
+
+function definirTopo({ titulo, sub = '', avatar = null, voltar = false, menu = null, abas = false }) {
+  topo.titulo.textContent = titulo;
+  topo.sub.textContent = sub;
+  topo.sub.hidden = !sub;
+  topo.avatar.replaceChildren(...(avatar ? [avatar] : []));
+  topo.voltar.hidden = !voltar;
+  topo.menu.hidden = !menu;
+  topo.menu.onclick = menu;
+  topo.abas.hidden = !abas;
+  document.body.classList.toggle('no-chat', rota.tipo === 'chat' || rota.tipo === 'assistente');
+  for (const botao of topo.abas.querySelectorAll('button')) {
+    const aba = rota.tipo === 'assistente' ? 'assistente' : rota.tipo === 'ajustes' ? 'ajustes' : 'inicio';
+    botao.classList.toggle('ativa', botao.dataset.aba === aba);
+    botao.setAttribute('aria-current', botao.dataset.aba === aba ? 'page' : 'false');
   }
-
-  if (rota.tipo === 'config') desenharConfig();
-  else if (!estado) desenharEntrada();
-  else if (rota.tipo === 'inicio') desenharInicio();
-  else if (rota.tipo === 'projeto') desenharProjeto();
-  else if (rota.tipo === 'trabalho') desenharTrabalho();
-  else if (rota.tipo === 'chat') desenharChat(estavaNoFim, rascunho);
-  else if (rota.tipo === 'arquivos') desenharArquivos();
-
-  if (folhaAberta) { const aberta = desenharFolha(); if (aberta) tela.append(aberta); }
-}
-
-function desenharConfig() {
-  titulo.textContent = 'Primeiro acesso';
-  const campo = el('input', { type: 'text', id: 'cliente', placeholder: 'ID do cliente (termina em .apps.googleusercontent.com)', value: guardado.ler('clientId') ?? '', autocomplete: 'off' });
-  tela.append(
-    el('p', {}, 'Cole aqui o ID do cliente Web criado no Google Cloud. Veja o passo a passo no arquivo LEIA-ME.md.'),
-    campo,
-    el('button', { class: 'botao', onclick: () => {
-      const valor = campo.value.trim();
-      if (!valor.includes('.apps.googleusercontent.com')) { aviso = 'Esse não parece um ID de cliente do Google.'; return desenhar(); }
-      guardado.gravar('clientId', valor);
-      guardado.apagar('token');
-      token = null;
-      aviso = '';
-      ir({ tipo: 'inicio' });
-    } }, 'Salvar'),
-  );
-}
-
-function desenharEntrada() {
-  titulo.textContent = 'Hub';
-  tela.append(
-    el('div', { class: 'cartao' },
-      el('h2', {}, 'Hub no celular'),
-      el('p', {}, 'Entre com a mesma conta do Google que o Hub usa no PC.'),
-      el('button', { class: 'botao', onclick: () => void pedirToken(guardado.ler('logado') === '1' ? '' : 'consent').then(() => carregar(false)).catch((erro) => { aviso = erro.message; desenhar(); }) }, 'Entrar com o Google'),
-    ),
-    el('button', { class: 'botao sec', onclick: () => ir({ tipo: 'config' }) }, 'Trocar o ID do cliente'),
-  );
-}
-
-function desenharInicio() {
-  titulo.textContent = 'Projetos';
-  if (estado.projetos.length === 0) tela.append(el('p', { class: 'suave' }, 'Nenhum projeto ainda. Crie o primeiro.'));
-  for (const projeto of estado.projetos) {
-    const chats = projeto.trabalhos.reduce((soma, trabalho) => soma + trabalho.chats.length, 0);
-    const ocupados = projeto.trabalhos.reduce((soma, trabalho) => soma + trabalho.chats.filter((chat) => chat.ocupado).length, 0);
-    tela.append(el('button', { class: 'linha', onclick: () => ir({ tipo: 'projeto', projeto: projeto.id }) },
-      el('span', { class: 'selo-chat grande', 'aria-hidden': 'true' }, inicial(projeto.nome)),
-      el('span', { class: 'nome' }, projeto.nome, el('small', { class: 'sub' }, `${projeto.trabalhos.length} trabalhos · ${chats} chats`)),
-      ocupados ? el('span', { class: 'pilula' }, `${ocupados} respondendo`) : null));
-  }
-  tela.append(botaoMais('Novo projeto', () => { folha = folhaProjeto(); desenhar(); }));
+  const presente = estado ? pcPresente(estado) : false;
+  topo.pc.className = `pc ${estado ? (presente ? 'on' : 'off') : ''}`;
+  topo.pc.title = estado ? (presente ? 'PC ligado' : `PC visto ${haQuanto(estado.atualizadoEm)}`) : '';
+  topo.pc.textContent = estado && !presente ? 'PC desligado?' : '';
 }
 
 function projetoAtual() { return estado.projetos.find((item) => item.id === rota.projeto); }
 function trabalhoAtual() { return projetoAtual()?.trabalhos.find((item) => item.id === rota.trabalho); }
 
+function desenhar(direcao = '') {
+  const rascunho = $('texto')?.value ?? '';
+  tela.replaceChildren();
+  tela.className = direcao ? `entra-${direcao}` : '';
+  tela.scrollTop = 0;
+  if (aviso) tela.append(el('p', { class: 'erro faixa' }, aviso));
+  if (rota.tipo === 'config') return desenharConfig();
+  if (!estado) return desenharEntrada();
+  if (rota.tipo === 'inicio') desenharInicio();
+  else if (rota.tipo === 'projeto') desenharProjeto();
+  else if (rota.tipo === 'trabalho') desenharTrabalho();
+  else if (rota.tipo === 'chat' || rota.tipo === 'assistente') desenharChat(rascunho);
+  else if (rota.tipo === 'arquivos') desenharArquivos();
+  else if (rota.tipo === 'ajustes') desenharAjustes();
+  if (folha) desenharFolha();
+}
+
+function desenharConfig() {
+  definirTopo({ titulo: 'Primeiro acesso' });
+  const retorno = enderecoDeRetorno();
+  const id = campo('cliente', 'ID do cliente (termina em .apps.googleusercontent.com)', guardado.ler('clientId') ?? '', 200);
+  const segredo = campo('segredo', 'Chave secreta do cliente (GOCSPX-…)', guardado.ler('segredo') ?? '', 200);
+  segredo.setAttribute('type', 'password');
+  tela.append(
+    el('div', { class: 'cartao' },
+      el('h2', {}, 'Conectar ao Google'),
+      el('p', { class: 'suave' }, 'No Google Cloud, no cliente "Aplicativo da Web", copie o ID e a chave secreta. A chave fica só neste aparelho.'),
+      id, segredo,
+      el('p', { class: 'suave pequeno' }, 'Em "URIs de redirecionamento autorizados" do cliente, adicione exatamente este endereço:'),
+      el('code', { class: 'endereco' }, retorno),
+      el('button', { class: 'botao sec', onclick: () => { void navigator.clipboard?.writeText(retorno); vibrar(); } }, 'Copiar endereço'),
+      el('button', { class: 'botao', onclick: () => {
+        if (!id.value.includes('.apps.googleusercontent.com') || segredo.value.trim().length < 10) { aviso = 'Confira o ID do cliente e a chave secreta.'; return desenhar(); }
+        guardado.gravar('clientId', id.value.trim());
+        guardado.gravar('segredo', segredo.value.trim());
+        guardado.apagar('renovacao'); guardado.apagar('token');
+        sessao.token = null;
+        aviso = '';
+        rota = { tipo: 'inicio' };
+        desenhar();
+      } }, 'Salvar')),
+  );
+}
+
+function desenharEntrada() {
+  definirTopo({ titulo: 'Hub' });
+  tela.append(el('div', { class: 'cartao heroi' },
+    el('span', { class: 'bolinha grande', 'aria-hidden': 'true' }, '✦'),
+    el('h2', {}, 'Hub no celular'),
+    el('p', { class: 'suave' }, 'Fale com os seus chats usando o seu PC. Entre com a mesma conta do Google que o Hub usa lá.'),
+    configurado() ? el('button', { class: 'botao', onclick: () => void iniciarLogin() }, 'Entrar com o Google') : el('button', { class: 'botao', onclick: () => { rota = { tipo: 'config' }; desenhar(); } }, 'Configurar'),
+  ));
+  if (configurado()) tela.append(el('button', { class: 'botao sec', onclick: () => { rota = { tipo: 'config' }; desenhar(); } }, 'Trocar o ID do cliente'));
+}
+
+function pilulaOcupado(quantos) { return quantos ? el('span', { class: 'pilula' }, `${quantos} respondendo`) : null; }
+
+function desenharInicio() {
+  definirTopo({ titulo: 'Projetos', sub: estado.projetos.length ? `${estado.projetos.length} no Hub` : '', abas: true });
+  if (estado.projetos.length === 0) tela.append(el('div', { class: 'vazio' }, el('p', {}, 'Nenhum projeto ainda.'), el('p', { class: 'suave' }, 'Toque no + para criar o primeiro.')));
+  for (const projeto of estado.projetos) {
+    const chats = projeto.trabalhos.reduce((soma, trabalho) => soma + trabalho.chats.length, 0);
+    const ocupados = projeto.trabalhos.reduce((soma, trabalho) => soma + trabalho.chats.filter((chat) => chat.ocupado).length, 0);
+    tela.append(el('button', { class: 'linha', onclick: () => ir({ tipo: 'projeto', projeto: projeto.id }) },
+      bolinha(projeto.nome, { grande: true }),
+      el('span', { class: 'nome' }, projeto.nome, el('small', { class: 'sub' }, `${projeto.trabalhos.length} trabalhos · ${chats} chats`)),
+      pilulaOcupado(ocupados)));
+  }
+  tela.append(el('button', { class: 'fab', 'aria-label': 'Novo projeto', onclick: folhaProjeto }, '+'));
+}
+
 function desenharProjeto() {
   const projeto = projetoAtual();
-  if (!projeto) return ir({ tipo: 'inicio' });
-  titulo.textContent = projeto.nome;
-  if (projeto.trabalhos.length === 0) tela.append(el('p', { class: 'suave' }, 'Nenhum trabalho neste projeto ainda.'));
+  if (!projeto) return voltarUma();
+  definirTopo({ titulo: projeto.nome, sub: `${projeto.trabalhos.length} trabalhos`, avatar: bolinha(projeto.nome), voltar: true, menu: () => abrirFolha({ titulo: projeto.nome, itens: [
+    { rotulo: 'Renomear', ao: () => folhaRenomear('projeto', projeto.id, projeto.nome) },
+    { rotulo: 'Enviar para a lixeira', perigo: true, ao: () => folhaLixeira('projeto', projeto.id, projeto.nome) },
+  ] }) });
+  if (projeto.trabalhos.length === 0) tela.append(el('div', { class: 'vazio' }, el('p', {}, 'Nenhum trabalho neste projeto.'), el('p', { class: 'suave' }, 'Toque no + para criar um.')));
   for (const trabalho of projeto.trabalhos) {
     const ocupados = trabalho.chats.filter((chat) => chat.ocupado).length;
     tela.append(el('button', { class: 'linha', onclick: () => ir({ tipo: 'trabalho', projeto: projeto.id, trabalho: trabalho.id }) },
+      bolinha(trabalho.nome, { grande: true }),
       el('span', { class: 'nome' }, trabalho.nome, el('small', { class: 'sub' }, `${trabalho.chats.length} chats · ${trabalho.arquivos.length} arquivos no Drive`)),
-      ocupados ? el('span', { class: 'pilula' }, `${ocupados} respondendo`) : null));
+      pilulaOcupado(ocupados)));
   }
-  tela.append(botaoMais('Novo trabalho', () => { folha = folhaTrabalho(projeto); desenhar(); }));
+  tela.append(el('button', { class: 'fab', 'aria-label': 'Novo trabalho', onclick: () => folhaTrabalho(projeto) }, '+'));
 }
 
 function desenharTrabalho() {
   const projeto = projetoAtual();
   const trabalho = trabalhoAtual();
-  if (!trabalho) return ir({ tipo: 'inicio' });
-  titulo.textContent = `${projeto.nome} › ${trabalho.nome}`;
+  if (!trabalho) return voltarUma();
+  definirTopo({ titulo: trabalho.nome, sub: projeto.nome, avatar: bolinha(trabalho.nome), voltar: true, menu: () => abrirFolha({ titulo: trabalho.nome, itens: [
+    { rotulo: 'Enviar arquivo do celular para o trabalho', ao: () => escolherArquivo((lista) => void enviarAoTrabalho(trabalho, lista)) },
+    { rotulo: 'Renomear', ao: () => folhaRenomear('trabalho', trabalho.id, trabalho.nome) },
+    { rotulo: 'Enviar para a lixeira', perigo: true, ao: () => folhaLixeira('trabalho', trabalho.id, trabalho.nome) },
+  ] }) });
   tela.append(el('button', { class: 'linha', onclick: () => ir({ ...rota, tipo: 'arquivos' }) },
-    el('span', { class: 'selo-chat grande', 'aria-hidden': 'true' }, '📁'),
+    bolinha('Arquivos', { emoji: '📁', cor: 'var(--elevado)', grande: true }),
     el('span', { class: 'nome' }, 'Arquivos', el('small', { class: 'sub' }, 'Os que estão no Google Drive')),
-    el('small', {}, String(trabalho.arquivos.length))));
-  tela.append(el('h2', {}, 'Chats'));
-  if (trabalho.chats.length === 0) tela.append(el('p', { class: 'suave' }, 'Nenhum chat neste trabalho ainda.'));
+    el('small', { class: 'suave' }, String(trabalho.arquivos.length))));
+  if (trabalho.chats.length === 0) tela.append(el('div', { class: 'vazio' }, el('p', {}, 'Nenhum chat neste trabalho.'), el('p', { class: 'suave' }, 'Toque no + para criar um cargo.')));
   for (const chat of trabalho.chats) {
     const ultima = chat.mensagens.at(-1);
-    tela.append(el('button', { class: 'linha', onclick: () => ir({ tipo: 'chat', projeto: projeto.id, trabalho: trabalho.id, chat: chat.id }) },
-      selo(chat, true),
-      el('span', { class: 'nome' }, chat.titulo, chat.cargo ? el('small', {}, ` · ${chat.cargo}`) : null,
-        el('small', { class: 'sub' }, ultima ? ultima.texto.replace(/\s+/g, ' ').slice(0, 70) : 'Sem mensagens')),
-      chat.ocupado ? el('span', { class: 'pilula' }, 'respondendo') : null));
+    tela.append(el('button', { class: 'linha chat-linha', onclick: () => ir({ tipo: 'chat', projeto: projeto.id, trabalho: trabalho.id, chat: chat.id }) },
+      bolinhaDoChat(chat, true),
+      el('span', { class: 'nome' }, el('span', { class: 'topo-linha' }, el('b', {}, chat.titulo), el('small', { class: 'hora' }, ultima ? horaDaLista(ultima.quando) : '')),
+        el('small', { class: `sub${chat.ocupado ? ' digitando-txt' : ''}` }, chat.ocupado ? 'respondendo…' : ultima ? `${ultima.papel === 'user' ? 'Você: ' : ''}${ultima.texto.replace(/\s+/g, ' ').slice(0, 80)}` : chat.cargo || 'Sem mensagens'))));
   }
-  tela.append(botaoMais('Novo chat', () => { folha = folhaChat(trabalho); desenhar(); }));
+  tela.append(el('button', { class: 'fab', 'aria-label': 'Novo chat', onclick: () => folhaChat(trabalho) }, '+'));
 }
 
-function desenharChat(estavaNoFim, rascunho) {
-  const achado = acharChat(estado, rota.chat);
-  if (!achado) return ir({ tipo: 'inicio' });
-  const { chat } = achado;
-  titulo.textContent = chat.titulo;
-  const vistos = new Set(chat.mensagens.map((m) => m.texto.trim()));
-  pendentes = pendentes.filter((p) => p.chat !== chat.id || !vistos.has(p.texto.trim()));
-  const conversa = el('div', { class: 'conversa' });
-  if (chat.mensagens.length === 0) conversa.append(el('p', { class: 'suave' }, 'Escreva a primeira mensagem para este chat.'));
-  for (const mensagem of chat.mensagens) conversa.append(el('div', { class: `balao ${mensagem.papel}` }, mensagem.texto));
-  for (const p of pendentes.filter((item) => item.chat === chat.id)) {
-    const resultado = estado.resultados?.[p.id];
-    conversa.append(el('div', { class: 'balao user' }, p.texto, el('small', { class: resultado && !resultado.ok ? 'erro' : 'suave', style: 'display:block' },
-      resultado ? (resultado.ok ? 'Entregue ao chat' : resultado.mensagem) : 'Esperando o PC…')));
-  }
-  if (chat.ocupado) conversa.append(el('div', { class: 'digitando' }, 'Respondendo…'));
-  const caixa = el('textarea', { id: 'texto', rows: '1', placeholder: 'Escreva para o chat', 'aria-label': 'Mensagem' });
-  caixa.value = rascunho;
-  const enviar = el('button', { class: 'botao', onclick: async () => {
-    const texto = caixa.value.trim();
-    if (!texto) return;
-    const pedido = novoPedido('mensagem', chat.id, texto);
-    pendentes.push({ id: pedido.id, chat: chat.id, texto });
-    caixa.value = '';
+async function enviarAoTrabalho(trabalho, lista) {
+  for (const arquivo of lista) {
+    aviso = `Enviando ${arquivo.name}…`;
     desenhar();
-    try { await enviarPedido(pedido); aviso = ''; } catch (erro) { aviso = erro.message; pendentes = pendentes.filter((p) => p.id !== pedido.id); desenhar(); }
-  } }, 'Enviar');
-  const parar = el('button', { class: 'botao sec', onclick: () => void enviarPedido(novoPedido('parar', chat.id)).catch((erro) => { aviso = erro.message; desenhar(); }) }, 'Parar');
-  tela.append(conversa, el('div', { id: 'envio' }, caixa, chat.ocupado ? parar : enviar));
-  if (estavaNoFim || !rascunho) tela.scrollTop = tela.scrollHeight;
+    try {
+      const driveId = await enviarArquivoAoDrive(arquivo, () => undefined);
+      await enviarPedido({ ...novoPedido('enviarArquivo', 0), trabalhoId: trabalho.id, driveId, nome: arquivo.name });
+      aviso = '';
+    } catch (erro) {
+      aviso = erro.message;
+    }
+  }
+  vibrar();
+  desenhar();
 }
+
+// ---------- chat estilo mensageiro
+
+function chatAtual() {
+  if (rota.tipo === 'assistente') return estado.assistente ? { chat: estado.assistente, projeto: null } : null;
+  return acharChat(estado, rota.chat);
+}
+
+function desenharTexto(texto) {
+  const caixa = el('div', { class: 'texto' });
+  for (const bloco of lerTexto(texto)) {
+    if (bloco.tipo === 'codigo') caixa.append(el('pre', {}, bloco.texto));
+    else if (bloco.tipo === 'lista') caixa.append(el(bloco.ordenada ? 'ol' : 'ul', {}, ...bloco.itens.map((item) => el('li', {}, ...partes(item)))));
+    else caixa.append(el('p', {}, ...partes(bloco.partes)));
+  }
+  return caixa;
+}
+
+function partes(lista) {
+  return lista.map((parte) => (parte.tipo === 'texto' ? document.createTextNode(parte.texto)
+    : el(parte.tipo === 'negrito' ? 'strong' : parte.tipo === 'italico' ? 'em' : 'code', {}, parte.texto)));
+}
+
+function desenharChat(rascunho) {
+  const achado = chatAtual();
+  const assistente = rota.tipo === 'assistente';
+  if (!achado) {
+    definirTopo({ titulo: 'Assistente geral', sub: 'ainda não usado', avatar: bolinha('Assistente', { emoji: '✦', cor: 'var(--destaque)' }), abas: true });
+    tela.append(el('div', { class: 'vazio' }, el('p', {}, 'O assistente geral ainda não foi aberto no PC.'), el('p', { class: 'suave' }, 'Você pode mandar a primeira mensagem daqui.')));
+  }
+  const chat = achado?.chat ?? { id: 0, titulo: 'Assistente geral', cargo: '', avatar: '', modelo: null, ocupado: false, mensagens: [] };
+  definirTopo({
+    titulo: chat.titulo,
+    sub: assistente ? (chat.ocupado ? 'respondendo…' : 'controla o Hub com a sua aprovação no PC') : situacaoDoChat(chat),
+    avatar: assistente ? bolinha('Assistente', { emoji: '✦', cor: 'var(--destaque)' }) : bolinhaDoChat(chat),
+    voltar: !assistente,
+    abas: assistente,
+    menu: assistente ? null : () => abrirFolha({ titulo: chat.titulo, itens: [
+      { rotulo: 'Ajustes do chat (ícone e modelo)', ao: () => folhaChatAjustes(chat) },
+      { rotulo: 'Renomear', ao: () => folhaRenomear('chat', chat.id, chat.titulo) },
+      { rotulo: 'Enviar para a lixeira', perigo: true, ao: () => folhaLixeira('chat', chat.id, chat.titulo) },
+    ] }),
+  });
+  const lista = el('div', { class: 'mensagens', id: 'mensagens' });
+  const caixa = el('textarea', { id: 'texto', rows: '1', placeholder: 'Mensagem', 'aria-label': 'Mensagem' });
+  caixa.value = rascunho;
+  caixa.addEventListener('input', () => { caixa.style.height = 'auto'; caixa.style.height = `${Math.min(caixa.scrollHeight, 140)}px`; atualizarBotao(); });
+  const botao = el('button', { id: 'enviar', class: 'redondo', 'aria-label': 'Enviar' }, el('span', { 'aria-hidden': 'true' }, '➤'));
+  const clipe = el('button', { class: 'clipe', 'aria-label': 'Anexar arquivo', onclick: () => escolherArquivo(anexar) }, '📎');
+  const atualizarBotao = () => {
+    const parando = chat.ocupado && caixa.value.trim() === '' && anexos.length === 0;
+    botao.classList.toggle('parar', parando);
+    botao.setAttribute('aria-label', parando ? 'Parar a resposta' : 'Enviar');
+    botao.firstChild.textContent = parando ? '■' : '➤';
+    botao.disabled = anexos.some((a) => a.estado === 'enviando') || (!parando && caixa.value.trim() === '' && anexos.length === 0);
+  };
+  botao.addEventListener('click', async () => {
+    if (botao.classList.contains('parar')) { void enviarPedido({ ...novoPedido('parar', chat.id), assistente }).catch((erro) => { aviso = erro.message; desenhar(); }); return; }
+    const texto = caixa.value.trim();
+    const prontos = anexos.filter((a) => a.estado === 'ok');
+    if (!texto && prontos.length === 0) return;
+    const pedido = { ...novoPedido('mensagem', chat.id, texto), assistente, anexos: prontos.map((a) => ({ driveId: a.driveId, nome: a.nome })) };
+    pendentes.push({ id: pedido.id, chat: assistente ? -1 : chat.id, texto: texto || prontos.map((a) => a.nome).join(', '), tipo: 'mensagem' });
+    caixa.value = '';
+    caixa.style.height = 'auto';
+    anexos = [];
+    vibrar();
+    montarMensagens(chat, true);
+    desenharAnexos();
+    atualizarBotao();
+    try { await enviarPedido(pedido); aviso = ''; } catch (erro) { aviso = erro.message; pendentes = pendentes.filter((p) => p.id !== pedido.id); montarMensagens(chat, false); }
+  });
+  caixa.addEventListener('keydown', (evento) => { if (evento.key === 'Enter' && (evento.ctrlKey || evento.metaKey)) botao.click(); });
+  tela.append(lista, el('div', { id: 'anexos', class: 'anexos' }), el('div', { id: 'envio' }, clipe, caixa, botao));
+  tela.classList.add('chat');
+  montarMensagens(chat, true);
+  desenharAnexos();
+  atualizarBotao();
+}
+
+function anexar(lista) {
+  for (const arquivo of lista) {
+    const anexo = { nome: arquivo.name, tamanho: arquivo.size, estado: 'enviando', progresso: 0, driveId: null };
+    anexos.push(anexo);
+    enviarArquivoAoDrive(arquivo, (fracao) => { anexo.progresso = fracao; desenharAnexos(); })
+      .then((id) => { anexo.driveId = id; anexo.estado = 'ok'; })
+      .catch((erro) => { anexo.estado = 'erro'; anexo.erro = erro.message; })
+      .finally(() => { desenharAnexos(); $('texto')?.dispatchEvent(new Event('input')); });
+  }
+  desenharAnexos();
+  $('texto')?.dispatchEvent(new Event('input'));
+}
+
+function desenharAnexos() {
+  const caixa = $('anexos');
+  if (!caixa) return;
+  caixa.replaceChildren(...anexos.map((anexo, i) => el('span', { class: `chip ${anexo.estado}` },
+    el('span', { class: 'chip-nome' }, anexo.nome),
+    el('small', {}, anexo.estado === 'enviando' ? `${Math.round(anexo.progresso * 100)}%` : anexo.estado === 'erro' ? 'falhou' : tamanhoLegivel(anexo.tamanho)),
+    el('button', { 'aria-label': `Tirar ${anexo.nome}`, onclick: () => { anexos.splice(i, 1); desenharAnexos(); $('texto')?.dispatchEvent(new Event('input')); } }, '×'))));
+}
+
+/** Draws the messages of the open chat. Only messages not seen before pop in. */
+function montarMensagens(chat, rolar) {
+  const lista = $('mensagens');
+  if (!lista) return;
+  const chave = rota.tipo === 'assistente' ? 'assistente' : chat.id;
+  const ultimoVisto = vistas.get(chave) ?? 0;
+  const perto = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 140;
+  const textosVistos = new Set(chat.mensagens.map((m) => m.texto.trim()));
+  pendentes = pendentes.filter((p) => p.tipo !== 'mensagem' || p.chat !== (rota.tipo === 'assistente' ? -1 : chat.id) || !textosVistos.has(p.texto.trim()));
+  lista.replaceChildren();
+  if (chat.mensagens.length === 0 && pendentes.length === 0) lista.append(el('p', { class: 'dica' }, 'Escreva a primeira mensagem para este chat.'));
+  let dia = '';
+  for (const mensagem of chat.mensagens) {
+    const rotulo = rotuloDia(mensagem.quando);
+    if (rotulo && rotulo !== dia) { dia = rotulo; lista.append(el('div', { class: 'dia' }, el('span', {}, rotulo))); }
+    const minha = mensagem.papel === 'user';
+    lista.append(el('div', { class: `balao ${minha ? 'minha' : mensagem.papel === 'system' ? 'sistema' : 'dela'}${mensagem.id > ultimoVisto && ultimoVisto ? ' nova' : ''}` },
+      desenharTexto(mensagem.texto), mensagem.papel === 'system' ? null : el('span', { class: 'meta' }, hora(mensagem.quando), minha ? el('span', { class: 'ticks', 'aria-label': 'entregue' }, '✓✓') : null)));
+  }
+  for (const p of pendentes.filter((item) => item.tipo === 'mensagem' && item.chat === (rota.tipo === 'assistente' ? -1 : chat.id))) {
+    const resultado = estado.resultados?.[p.id];
+    lista.append(el('div', { class: 'balao minha nova' }, desenharTexto(p.texto),
+      el('span', { class: `meta${resultado && !resultado.ok ? ' erro' : ''}` }, resultado ? (resultado.ok ? '✓✓' : resultado.mensagem) : 'enviando… 🕓')));
+  }
+  if (chat.ocupado) lista.append(el('div', { class: 'balao dela digitando', 'aria-label': 'respondendo' }, el('i'), el('i'), el('i')));
+  const ultimo = chat.mensagens.at(-1)?.id ?? 0;
+  vistas.set(chave, ultimo);
+  if (rolar || perto) lista.scrollTop = lista.scrollHeight;
+  const botao = $('enviar');
+  if (botao) {
+    const parando = chat.ocupado && $('texto')?.value.trim() === '' && anexos.length === 0;
+    botao.classList.toggle('parar', parando);
+    botao.firstChild.textContent = parando ? '■' : '➤';
+    botao.disabled = anexos.some((a) => a.estado === 'enviando') || (!parando && $('texto')?.value.trim() === '' && anexos.length === 0);
+  }
+}
+
+// ---------- arquivos e ajustes
 
 function desenharArquivos() {
   const trabalho = trabalhoAtual();
-  if (!trabalho) return ir({ tipo: 'inicio' });
-  titulo.textContent = 'Arquivos';
-  if (trabalho.arquivos.length === 0) tela.append(el('p', { class: 'suave' }, 'Nenhum arquivo deste trabalho está no Drive.'));
+  if (!trabalho) return voltarUma();
+  definirTopo({ titulo: 'Arquivos', sub: trabalho.nome, voltar: true });
+  if (trabalho.arquivos.length === 0) tela.append(el('div', { class: 'vazio' }, el('p', {}, 'Nenhum arquivo deste trabalho está no Drive.')));
   const previa = el('div', { class: 'previa' });
   for (const arquivo of trabalho.arquivos) {
+    const tipo = tipoDoArquivo(arquivo.nome);
+    const emoji = { imagem: '🖼️', audio: '🎵', video: '🎬', texto: '📄', outro: '📦' }[tipo];
     tela.append(el('button', { class: 'linha', onclick: () => void abrirArquivo(arquivo, previa) },
-      el('span', { class: 'nome' }, arquivo.nome), el('small', {}, tamanhoLegivel(arquivo.tamanho))));
+      bolinha(arquivo.nome, { emoji, cor: 'var(--elevado)' }), el('span', { class: 'nome' }, arquivo.nome, el('small', { class: 'sub' }, tamanhoLegivel(arquivo.tamanho)))));
   }
   tela.append(previa);
 }
 
 async function abrirArquivo(arquivo, destino) {
   destino.replaceChildren(el('p', { class: 'suave' }, `Baixando ${arquivo.nome}…`));
+  destino.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   try {
     const blob = await baixar(arquivo.driveId);
     const url = URL.createObjectURL(blob);
@@ -434,41 +712,108 @@ async function abrirArquivo(arquivo, destino) {
   }
 }
 
+function desenharAjustes() {
+  definirTopo({ titulo: 'Ajustes', abas: true });
+  const temaAtual = document.documentElement.dataset.tema;
+  tela.append(
+    el('h2', { class: 'secao' }, 'Aparência'),
+    el('div', { class: 'temas', role: 'radiogroup', 'aria-label': 'Tema' }, ...TEMAS.map((tema) => {
+      const botao = el('button', { class: `tema${tema.id === temaAtual ? ' ativo' : ''}`, role: 'radio', 'aria-checked': String(tema.id === temaAtual), onclick: () => { guardado.gravar('tema', tema.id); aplicarAparencia(); desenhar(); } },
+        el('span', { class: 'amostra' }), tema.nome);
+      botao.querySelector('.amostra').style.background = `linear-gradient(135deg, ${tema.amostra[0]} 55%, ${tema.amostra[1]} 55%)`;
+      return botao;
+    })),
+    el('p', { class: 'suave pequeno' }, 'Cor de destaque'),
+    el('div', { class: 'grade-cores', role: 'radiogroup', 'aria-label': 'Cor de destaque' },
+      el('button', { class: `auto${guardado.ler('cor') ? '' : ' ativo'}`, 'aria-label': 'Cor do tema', onclick: () => { guardado.apagar('cor'); aplicarAparencia(); desenhar(); } }, 'A'),
+      ...CORES.map((cor) => { const b = el('button', { 'data-cor': cor, class: guardado.ler('cor') === cor ? 'ativo' : '', 'aria-label': `Cor ${cor}`, onclick: () => { guardado.gravar('cor', cor); aplicarAparencia(); desenhar(); } }); b.style.background = cor; return b; })),
+    el('h2', { class: 'secao' }, 'Uso do Claude no mês'),
+    desenharOrcamento(),
+    el('h2', { class: 'secao' }, 'Conta e PC'),
+    el('div', { class: 'cartao' },
+      el('p', {}, estado ? (pcPresente(estado) ? '🟢 O PC está ligado e respondendo.' : `🔴 O PC não responde desde ${haQuanto(estado.atualizadoEm)}.`) : ''),
+      el('p', { class: 'suave pequeno' }, 'Se o PC estiver desligado, as mensagens ficam esperando e são entregues quando ele ligar.'),
+      el('button', { class: 'botao sec', onclick: () => { rota = { tipo: 'config' }; desenhar(); } }, 'Trocar o ID do cliente'),
+      el('button', { class: 'botao sec', onclick: () => { for (const chave of ['token', 'tokenAte', 'renovacao']) guardado.apagar(chave); sessao.token = null; estado = null; assinatura = ''; historico = []; rota = { tipo: 'inicio' }; aviso = ''; desenhar(); } }, 'Sair do Google')),
+  );
+}
+
+function desenharOrcamento() {
+  const o = estado.orcamento;
+  if (!o) return el('p', { class: 'suave' }, 'Sem dados de uso.');
+  const razao = o.limite ? Math.min(1, o.gasto / o.limite) : 0;
+  const barra = el('div', { class: `barra ${o.estado}`, role: 'progressbar', 'aria-valuenow': String(Math.round(razao * 100)), 'aria-valuemin': '0', 'aria-valuemax': '100' }, el('i'));
+  barra.firstChild.style.width = `${Math.round(razao * 100)}%`;
+  return el('div', { class: 'cartao' },
+    el('p', {}, o.limite ? `${dinheiro(o.gasto)} de ${dinheiro(o.limite)}` : `${dinheiro(o.gasto)} gastos este mês`),
+    o.limite ? barra : el('p', { class: 'suave pequeno' }, 'Sem limite definido. Defina no Hub, em Configurações › Uso e limites.'),
+    o.estado === 'exceeded' ? el('p', { class: 'erro' }, 'O limite do mês foi atingido: os chats não respondem até aumentar o limite no PC.') : null);
+}
+
 // ---------- ciclo
 
-async function carregar(silencioso) {
-  if (carregando) return;
+async function carregar() {
+  if (carregando || !configurado() || !guardado.ler('renovacao')) return;
   carregando = true;
   try {
-    estado = await lerEstado();
-    aviso = '';
+    const novo = await lerEstado();
+    const sem = JSON.stringify({ ...novo, atualizadoEm: '' });
+    const mudou = sem !== assinatura;
+    const primeiro = !estado;
+    estado = novo;
+    assinatura = sem;
+    aviso = aviso && !aviso.startsWith('Enviando') ? '' : aviso;
+    if (primeiro || (mudou && !folha)) {
+      if (rota.tipo === 'chat' || rota.tipo === 'assistente') {
+        const achado = chatAtual();
+        if (achado && $('mensagens')) { definirTopoDoChat(achado.chat); montarMensagens(achado.chat, false); }
+        else desenhar();
+      } else desenhar();
+    } else definirTopoPc();
   } catch (erro) {
-    if (!silencioso || !estado) aviso = erro.message;
+    if (!estado || precisaEntrar) { aviso = erro.message; desenhar(); }
   } finally {
     carregando = false;
   }
-  // A sheet being filled in is not redrawn under the person's fingers.
-  if (!folha) desenhar();
+}
+
+function definirTopoPc() {
+  const presente = estado ? pcPresente(estado) : false;
+  topo.pc.className = `pc ${estado ? (presente ? 'on' : 'off') : ''}`;
+  topo.pc.textContent = estado && !presente ? 'PC desligado?' : '';
+}
+
+function definirTopoDoChat(chat) {
+  topo.sub.textContent = rota.tipo === 'assistente' ? (chat.ocupado ? 'respondendo…' : 'controla o Hub com a sua aprovação no PC') : situacaoDoChat(chat);
+  definirTopoPc();
 }
 
 function agendar() {
   const espera = Date.now() < rapidoAte ? POLL_RAPIDO_MS : POLL_MS;
   setTimeout(() => {
-    if (!document.hidden && guardado.ler('clientId') && !precisaEntrar) void carregar(true);
+    if (!document.hidden) void carregar();
     agendar();
   }, espera);
 }
 
-voltar.addEventListener('click', () => {
-  if (rota.tipo === 'chat' || rota.tipo === 'arquivos') ir({ tipo: 'trabalho', projeto: rota.projeto, trabalho: rota.trabalho });
-  else if (rota.tipo === 'trabalho') ir({ tipo: 'projeto', projeto: rota.projeto });
-  else ir({ tipo: 'inicio' });
-});
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !precisaEntrar) void carregar(true); });
+topo.voltar.addEventListener('click', voltarUma);
+for (const botao of topo.abas.querySelectorAll('button')) {
+  botao.addEventListener('click', () => {
+    const aba = botao.dataset.aba;
+    historico = [];
+    rota = { tipo: aba };
+    folha = null;
+    desenhar('frente');
+  });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void carregar(); });
 
-if (!guardado.ler('clientId')) rota = { tipo: 'config' };
+aplicarAparencia();
+await terminarLogin();
+if (!configurado()) rota = { tipo: 'config' };
 desenhar();
-if (guardado.ler('clientId') && guardado.ler('logado') === '1') void carregar(true);
+void carregar();
 agendar();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => undefined);
+void lerData;
