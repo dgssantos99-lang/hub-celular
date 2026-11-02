@@ -1,7 +1,7 @@
 {
-  "version": "0.59.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.59.0.exe",
-  "notes": "- Scripts .sh nas skills dos chats. Eles rodam com o Git Bash (nunca com o bash.exe do Windows, que é o WSL), na pasta do trabalho, com o mesmo limite de tempo e de saída dos outros scripts. Sem o Git Bash, o chat recebe um aviso claro, nada é executado, e a revisão da skill mostra o aviso antes de instalar.",
-  "size": 89038845,
-  "sha256": "dd548a0bea3241a1b36656382267d2ab277599fb968ea4833b25eece37f9c8a6"
+  "version": "0.59.1",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.59.1.exe",
+  "notes": "- Scripts .sh das skills também rodam pelo WSL quando o PC não tem Git Bash. O Hub traduz o caminho do script para o Linux e passa a pasta do trabalho e as chaves da skill. Com o Git Bash instalado, ele continua sendo o escolhido. Sem os dois, o chat recebe o aviso e nada é executado.",
+  "size": 89039794,
+  "sha256": "3611eb72c1ff706c600079ed06e5293804e3c4b0a34bd57d3aa8a1fb0669f98e"
 }
