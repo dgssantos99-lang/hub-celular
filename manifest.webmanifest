@@ -1,0 +1,12 @@
+{
+  "name": "Hub no celular",
+  "short_name": "Hub",
+  "description": "Fale com os chats do Hub Workspace pelo celular, usando o seu PC.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14161c",
+  "theme_color": "#1b1d24",
+  "lang": "pt-BR",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

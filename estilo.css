@@ -1,0 +1,77 @@
+:root {
+  --fundo: #f4f5f8;
+  --painel: #ffffff;
+  --texto: #1c1f27;
+  --suave: #667085;
+  --linha: #e1e4ea;
+  --destaque: #4f6df5;
+  --destaque-texto: #ffffff;
+  --voce: #e5ebff;
+  --erro: #c2410c;
+  --ok: #15803d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #14161c;
+    --painel: #1d2028;
+    --texto: #e8eaf0;
+    --suave: #9aa3b5;
+    --linha: #2b2f3a;
+    --destaque: #7b93ff;
+    --destaque-texto: #10131c;
+    --voce: #28304d;
+    --erro: #fb923c;
+    --ok: #4ade80;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: none;
+}
+#topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+  background: var(--painel);
+  border-bottom: 1px solid var(--linha);
+}
+#topo h1 { font-size: 1.05rem; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icone { font-size: 1.8rem; line-height: 1; background: none; border: 0; color: var(--texto); padding: 0 8px; min-width: 44px; min-height: 44px; }
+.pc { font-size: 0.8rem; color: var(--suave); display: flex; align-items: center; gap: 6px; }
+.pc::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--suave); }
+.pc.on::before { background: var(--ok); }
+.pc.off::before { background: var(--erro); }
+#tela { flex: 1; overflow-y: auto; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+button, input, textarea { font: inherit; }
+.botao { background: var(--destaque); color: var(--destaque-texto); border: 0; border-radius: 12px; padding: 12px 16px; min-height: 44px; font-weight: 600; }
+.botao.sec { background: var(--painel); color: var(--texto); border: 1px solid var(--linha); }
+.cartao { background: var(--painel); border: 1px solid var(--linha); border-radius: 14px; padding: 14px; }
+.linha { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--painel); color: var(--texto); border: 1px solid var(--linha); border-radius: 14px; padding: 12px 14px; min-height: 52px; }
+.linha .nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linha small, .suave { color: var(--suave); }
+.selo { font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; background: var(--voce); }
+h2 { font-size: 0.95rem; margin: 6px 2px 0; color: var(--suave); font-weight: 600; }
+.abas { display: flex; gap: 8px; }
+.abas button { flex: 1; }
+.conversa { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.balao { max-width: 88%; padding: 10px 12px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--painel); border: 1px solid var(--linha); }
+.balao.user { align-self: flex-end; background: var(--voce); border-color: transparent; }
+.balao.system { align-self: center; color: var(--suave); font-size: 0.85rem; }
+.digitando { color: var(--suave); font-size: 0.9rem; }
+#envio { display: flex; gap: 8px; align-items: flex-end; position: sticky; bottom: 0; background: var(--fundo); padding-top: 6px; }
+#envio textarea { flex: 1; resize: none; max-height: 140px; border-radius: 14px; border: 1px solid var(--linha); background: var(--painel); color: var(--texto); padding: 10px 12px; }
+.erro { color: var(--erro); }
+.ok { color: var(--ok); }
+input[type=text] { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--linha); background: var(--painel); color: var(--texto); }
+.previa img, .previa video { max-width: 100%; border-radius: 12px; }
+.previa audio { width: 100%; }
+.previa pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--painel); border: 1px solid var(--linha); border-radius: 12px; padding: 10px; }
+@media (prefers-reduced-motion: no-preference) { .botao:active, .linha:active { transform: scale(0.98); } }
+:focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
