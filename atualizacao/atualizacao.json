@@ -1,7 +1,7 @@
 {
-  "version": "0.57.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.57.1.exe",
-  "notes": "- Corrigido: a instalação da atualização não rodava. O instalador agora roda escondido, depois que o Hub fecha, sem abrir janela de terminal.",
-  "size": 89035835,
-  "sha256": "4b055ee947f0095a96052acd675224e197ae7a35956619283bf848a831ad1c2f"
+  "version": "0.58.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.58.0.exe",
+  "notes": "- Ferramentas de jogo (Godot), por trabalho e desligadas por padrão. Na tela do trabalho, \"Deixar os chats deste trabalho usar o Godot\" libera para os chats dele o servidor MCP do Godot (14 ferramentas: criar cenas, rodar o projeto, ler a saída de depuração etc.) e o programa Godot, para validar o projeto sem abrir janela.\n- Se o Godot ou o servidor não forem encontrados neste PC, o Hub mostra o que falta, e os chats são avisados.",
+  "size": 89037540,
+  "sha256": "3fe78cc7e158a1a8d5f53669fce50f8f4fcf6ff052f0b540c914d6c083e72320"
 }
