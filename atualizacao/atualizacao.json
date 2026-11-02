@@ -1,7 +1,7 @@
 {
-  "version": "0.57.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.57.0.exe",
-  "notes": "- Documento de design por projeto: um texto que todos os chats do projeto leem antes de responder, sem precisar colar nada. Abre pelo botão \"Documento de design\" na tela do projeto.\n- Os chats não alteram o documento: propõem a versão nova, e você aceita ou recusa na mesma tela. Só o que você aceita vira o documento.",
-  "size": 89035652,
-  "sha256": "573a68e0d6030b3774ea68996d09cdb75e10add68d9f94a153205145a68c5bc5"
+  "version": "0.57.1",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.57.1.exe",
+  "notes": "- Corrigido: a instalação da atualização não rodava. O instalador agora roda escondido, depois que o Hub fecha, sem abrir janela de terminal.",
+  "size": 89035835,
+  "sha256": "4b055ee947f0095a96052acd675224e197ae7a35956619283bf848a831ad1c2f"
 }
