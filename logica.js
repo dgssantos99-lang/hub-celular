@@ -47,3 +47,24 @@ export function acharChat(estado, chatId) {
   }
   return null;
 }
+
+export const ICONES = {
+  robo: '🤖', livro: '📚', camera: '🎥', microfone: '🎙️', lapis: '✏️', lampada: '💡', estrela: '⭐', coracao: '❤️',
+  foguete: '🚀', balao: '🎈', escudo: '🛡️', pincel: '🎨', claquete: '🎬', nota: '🎵', globo: '🌍', cerebro: '🧠',
+};
+export const CORES = ['#4cb3f0', '#4cc38a', '#a78bfa', '#f0a04a', '#f472b6', '#f0d04a', '#ff7a8a', '#7dd3c0'];
+
+/** "foguete|#4cb3f0" becomes the emoji and the colour; an empty or unknown value has neither. */
+export function lerAvatar(avatar) {
+  const [icone, cor] = String(avatar || '').split('|');
+  return ICONES[icone] && CORES.includes(cor) ? { emoji: ICONES[icone], cor } : null;
+}
+
+export function montarAvatar(icone, cor) {
+  return ICONES[icone] && CORES.includes(cor) ? `${icone}|${cor}` : '';
+}
+
+/** Initial letter for a chat without an icon. */
+export function inicial(titulo) {
+  return (String(titulo || '?').trim()[0] || '?').toUpperCase();
+}

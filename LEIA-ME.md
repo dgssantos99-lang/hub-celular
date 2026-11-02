@@ -4,7 +4,7 @@ Uma página que você instala no Android e que conversa com os chats do Hub **us
 
 ## O que funciona
 
-- Ver projetos, trabalhos e chats, e as últimas mensagens de cada chat.
+- Criar projetos, trabalhos (com modelo de cargos) e chats (com cargo, tipo e ícone), e ver as últimas mensagens de cada chat.
 - Mandar mensagem para um chat e parar a resposta.
 - Ver, ouvir e baixar os arquivos do trabalho que estão no Drive (imagem, áudio, vídeo, texto).
 - O assistente geral **não** aparece no celular, de propósito: ele é o único que mexe no app inteiro.
