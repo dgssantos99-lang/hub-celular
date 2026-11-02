@@ -1,7 +1,7 @@
 {
-  "version": "0.60.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.0.exe",
-  "notes": "- Pacotes de skills com scripts de apoio. Uma skill que chama programas fora da própria pasta (como .claude/hooks e .claude/scripts de um repositório) agora vem com eles: a pasta de apoio ao lado de skills é instalada junto, e o link do GitHub baixa os arquivos de apoio também. A revisão mostra cada script antes de instalar.\n- Os scripts de apoio rodam pela ferramenta da skill, com o caminho escrito como a skill o escreve (.claude/scripts/x.sh ou ${CLAUDE_SKILL_DIR}/../../hooks/y.sh), na pasta do trabalho, onde eles esperam achar o projeto. Eles ficam guardados numa pasta que os chats não alteram e são recopiados antes de cada execução, então um script mudado por um chat nunca roda.",
-  "size": 89042431,
-  "sha256": "51978757190f0993c5d6d2cf2c9f49d9594aee326204c6bb74d20dfe8577945e"
+  "version": "0.60.1",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.1.exe",
+  "notes": "- O Hub usa um Python portátil, se houver um na pasta HubFerramentas/python (o zip oficial do python.org, sem instalador). Os scripts .py rodam com ele, e os scripts .sh o recebem na frente do PATH, para que `python` o ache. Em alguns PCs o instalador do Python falha com o erro 1632 (pasta Temp), e assim as skills que leem o project.yaml, como as do Game Studios, passam a funcionar mesmo assim.",
+  "size": 89042894,
+  "sha256": "a4da6962954c805719cb8630f9857075db1c2e0de8394db24c03c608a4823928"
 }
