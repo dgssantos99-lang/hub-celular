@@ -1,7 +1,7 @@
 {
-  "version": "0.58.2",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.58.2.exe",
-  "notes": "- Diagnóstico do servidor MCP do Godot: quando ele não é achado com as ferramentas ligadas, o log registra se o arquivo existe, o código do erro de leitura, o usuário e o programa em uso.",
-  "size": 89038264,
-  "sha256": "07f50071fc8953cfb365eeeb36b33c266befa88dd70af7e1fff69b0da68eb07e"
+  "version": "0.59.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.59.0.exe",
+  "notes": "- Scripts .sh nas skills dos chats. Eles rodam com o Git Bash (nunca com o bash.exe do Windows, que é o WSL), na pasta do trabalho, com o mesmo limite de tempo e de saída dos outros scripts. Sem o Git Bash, o chat recebe um aviso claro, nada é executado, e a revisão da skill mostra o aviso antes de instalar.",
+  "size": 89038845,
+  "sha256": "dd548a0bea3241a1b36656382267d2ab277599fb968ea4833b25eece37f9c8a6"
 }
