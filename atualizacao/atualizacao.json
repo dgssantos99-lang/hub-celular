@@ -1,5 +1,5 @@
 {
-  "version": "0.55.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.55.0.exe",
-  "notes": "- Chat: ao lado do seletor de modelo aparece \"em uso: …\", com o modelo que o Claude informou na última resposta. Assim dá para confirmar qual modelo respondeu, mesmo que o seletor mostre outro."
+  "version": "0.55.1",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.55.1.exe",
+  "notes": "- Clique com o botão direito em campos de texto: Desfazer, Recortar, Copiar, Colar e Selecionar tudo. Em texto que não pode ser editado: Copiar e Selecionar tudo."
 }
