@@ -1,7 +1,7 @@
 {
-  "version": "0.56.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.56.0.exe",
-  "notes": "- Atualização dentro do próprio Hub: ao clicar em \"Nova versão\", o app baixa o instalador (com progresso no cartão de downloads), confere o SHA-256 publicado no arquivo de atualização, fecha e instala a versão nova em silêncio. Os projetos e arquivos continuam, porque ficam na pasta de dados, separada do programa.\n- A cópia portátil (sem instalação) continua abrindo a página de download, porque não tem instalador para rodar.",
-  "size": 89034275,
-  "sha256": "20fb39defbc7900728a354685eb83213869f4a16c64ebdc2f47ce54276bb7dc2"
+  "version": "0.57.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.57.0.exe",
+  "notes": "- Documento de design por projeto: um texto que todos os chats do projeto leem antes de responder, sem precisar colar nada. Abre pelo botão \"Documento de design\" na tela do projeto.\n- Os chats não alteram o documento: propõem a versão nova, e você aceita ou recusa na mesma tela. Só o que você aceita vira o documento.",
+  "size": 89035652,
+  "sha256": "573a68e0d6030b3774ea68996d09cdb75e10add68d9f94a153205145a68c5bc5"
 }
