@@ -1,7 +1,7 @@
 {
-  "version": "0.59.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.59.1.exe",
-  "notes": "- Scripts .sh das skills também rodam pelo WSL quando o PC não tem Git Bash. O Hub traduz o caminho do script para o Linux e passa a pasta do trabalho e as chaves da skill. Com o Git Bash instalado, ele continua sendo o escolhido. Sem os dois, o chat recebe o aviso e nada é executado.",
-  "size": 89039794,
-  "sha256": "3611eb72c1ff706c600079ed06e5293804e3c4b0a34bd57d3aa8a1fb0669f98e"
+  "version": "0.60.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.0.exe",
+  "notes": "- Pacotes de skills com scripts de apoio. Uma skill que chama programas fora da própria pasta (como .claude/hooks e .claude/scripts de um repositório) agora vem com eles: a pasta de apoio ao lado de skills é instalada junto, e o link do GitHub baixa os arquivos de apoio também. A revisão mostra cada script antes de instalar.\n- Os scripts de apoio rodam pela ferramenta da skill, com o caminho escrito como a skill o escreve (.claude/scripts/x.sh ou ${CLAUDE_SKILL_DIR}/../../hooks/y.sh), na pasta do trabalho, onde eles esperam achar o projeto. Eles ficam guardados numa pasta que os chats não alteram e são recopiados antes de cada execução, então um script mudado por um chat nunca roda.",
+  "size": 89042431,
+  "sha256": "51978757190f0993c5d6d2cf2c9f49d9594aee326204c6bb74d20dfe8577945e"
 }
