@@ -1,7 +1,7 @@
 {
-  "version": "0.61.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.61.1.exe",
-  "notes": "- As skills podem ler os próprios arquivos (a pasta references e os contratos). O turno do chat libera a leitura da pasta do plugin das skills, que nenhum chat escreve. Antes, o Claude negava a leitura e a skill ficava pela metade.",
-  "size": 89045358,
-  "sha256": "a67f79442bb8cc03bb3d24a255f81f9dcd16495624d622e41a2635760b7f89a7"
+  "version": "0.62.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.0.exe",
+  "notes": "- O pacote de apoio das skills agora inclui a pasta docs (modelos, protocolos e regras que as skills leem), além de hooks e scripts. Ela é instalada junto, guardada fora do alcance dos chats, e copiada para a pasta .claude do trabalho a cada turno em que falta, que é onde as skills mandam ler (.claude/docs/templates/...). Os docs contam como arquivos do pacote, mas não aparecem na lista de código que executa. O download pelo link do GitHub baixa o apoio de 8 em 8 arquivos.\n- Um pacote instalado por versão anterior precisa ser instalado de novo para trazer a pasta docs.",
+  "size": 89045886,
+  "sha256": "853d6414926ba4fbf293a3b68ae3f52e64d2c79e025818bc8a5da393b455394d"
 }
