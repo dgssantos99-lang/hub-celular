@@ -1,7 +1,7 @@
 {
-  "version": "0.61.0",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.61.0.exe",
-  "notes": "- Documento de design com proteção contra troca errada. Cada vez que o documento é trocado, o texto antigo fica guardado em \"Versões anteriores\" (as últimas 40), com botão Restaurar. Aceitar uma proposta que parece só uma parte do documento (bem menor que ele) mostra um aviso antes. E há o botão Acrescentar, que põe a proposta no fim do documento em vez de trocar tudo.",
-  "size": 89045220,
-  "sha256": "50e1d1546057ea6005fcbdb808dd1e0a27be9921131d29f3965dc548a509e437"
+  "version": "0.61.1",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.61.1.exe",
+  "notes": "- As skills podem ler os próprios arquivos (a pasta references e os contratos). O turno do chat libera a leitura da pasta do plugin das skills, que nenhum chat escreve. Antes, o Claude negava a leitura e a skill ficava pela metade.",
+  "size": 89045358,
+  "sha256": "a67f79442bb8cc03bb3d24a255f81f9dcd16495624d622e41a2635760b7f89a7"
 }
