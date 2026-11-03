@@ -1,7 +1,7 @@
 {
-  "version": "0.60.4",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.4.exe",
-  "notes": "- Propostas de design não somem mais no armazenamento \"Só no Drive\". Esse modo envia cada arquivo novo do trabalho ao Drive e apaga a cópia do PC, e por isso a tela Documento de design não achava as propostas dos chats. Agora o arquivo em propostas-design/ vai ao Drive mas fica também no PC.",
-  "size": 89043851,
-  "sha256": "baaea950ceb8c94a7c1bce11666dc71656d831dbea345042eb2aa1b55b656f5a"
+  "version": "0.61.0",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.61.0.exe",
+  "notes": "- Documento de design com proteção contra troca errada. Cada vez que o documento é trocado, o texto antigo fica guardado em \"Versões anteriores\" (as últimas 40), com botão Restaurar. Aceitar uma proposta que parece só uma parte do documento (bem menor que ele) mostra um aviso antes. E há o botão Acrescentar, que põe a proposta no fim do documento em vez de trocar tudo.",
+  "size": 89045220,
+  "sha256": "50e1d1546057ea6005fcbdb808dd1e0a27be9921131d29f3965dc548a509e437"
 }
