@@ -1,7 +1,7 @@
 {
-  "version": "0.60.2",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.2.exe",
-  "notes": "- Corrige as skills que não carregavam no chat (o Claude respondia só \"Execute skill\"). O turno do chat agora libera a ferramenta Skill quando o chat tem skills, e libera os comandos `!` que a skill roda no início, só da pasta de scripts de apoio do pacote dela. Os scripts de apoio também ficam na raiz do plugin, onde `${CLAUDE_SKILL_DIR}/../../hooks/x.sh` aponta.\n- O Python portátil também vai na frente do PATH do próprio Claude, para os comandos das skills acharem o `python`.",
-  "size": 89043497,
-  "sha256": "93ab70fa9378e1cc4a7734c19d9a6daf989aeab1ea08176302addf2795a5c783"
+  "version": "0.60.3",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.3.exe",
+  "notes": "- Skills instaladas pela 0.60.1 ou antes não tinham a cópia dos scripts de apoio na raiz do plugin, e por isso o comando de início delas ainda pedia aprovação. A cópia agora é refeita ao iniciar cada turno, quando falta.",
+  "size": 89043516,
+  "sha256": "3879336a88809be007a21dfb4ede15e26e7e66b4b453d6ad4b9580bbe9ccdd29"
 }
