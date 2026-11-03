@@ -1,7 +1,7 @@
 {
-  "version": "0.60.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.1.exe",
-  "notes": "- O Hub usa um Python portátil, se houver um na pasta HubFerramentas/python (o zip oficial do python.org, sem instalador). Os scripts .py rodam com ele, e os scripts .sh o recebem na frente do PATH, para que `python` o ache. Em alguns PCs o instalador do Python falha com o erro 1632 (pasta Temp), e assim as skills que leem o project.yaml, como as do Game Studios, passam a funcionar mesmo assim.",
-  "size": 89042894,
-  "sha256": "a4da6962954c805719cb8630f9857075db1c2e0de8394db24c03c608a4823928"
+  "version": "0.60.2",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.2.exe",
+  "notes": "- Corrige as skills que não carregavam no chat (o Claude respondia só \"Execute skill\"). O turno do chat agora libera a ferramenta Skill quando o chat tem skills, e libera os comandos `!` que a skill roda no início, só da pasta de scripts de apoio do pacote dela. Os scripts de apoio também ficam na raiz do plugin, onde `${CLAUDE_SKILL_DIR}/../../hooks/x.sh` aponta.\n- O Python portátil também vai na frente do PATH do próprio Claude, para os comandos das skills acharem o `python`.",
+  "size": 89043497,
+  "sha256": "93ab70fa9378e1cc4a7734c19d9a6daf989aeab1ea08176302addf2795a5c783"
 }
