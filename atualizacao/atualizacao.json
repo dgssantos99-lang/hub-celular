@@ -1,7 +1,7 @@
 {
-  "version": "0.60.3",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.3.exe",
-  "notes": "- Skills instaladas pela 0.60.1 ou antes não tinham a cópia dos scripts de apoio na raiz do plugin, e por isso o comando de início delas ainda pedia aprovação. A cópia agora é refeita ao iniciar cada turno, quando falta.",
-  "size": 89043516,
-  "sha256": "3879336a88809be007a21dfb4ede15e26e7e66b4b453d6ad4b9580bbe9ccdd29"
+  "version": "0.60.4",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.60.4.exe",
+  "notes": "- Propostas de design não somem mais no armazenamento \"Só no Drive\". Esse modo envia cada arquivo novo do trabalho ao Drive e apaga a cópia do PC, e por isso a tela Documento de design não achava as propostas dos chats. Agora o arquivo em propostas-design/ vai ao Drive mas fica também no PC.",
+  "size": 89043851,
+  "sha256": "baaea950ceb8c94a7c1bce11666dc71656d831dbea345042eb2aa1b55b656f5a"
 }
