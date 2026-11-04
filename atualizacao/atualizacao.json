@@ -1,7 +1,7 @@
 {
-  "version": "0.62.2",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.2.exe",
-  "notes": "- Conversas mais baratas, para todos os chats de todos os projetos (os que já existem e os novos). O documento de design deixou de ser colado inteiro em toda mensagem: vai inteiro no primeiro turno, quando muda, quando a sessão do chat muda e a cada 8 turnos, e nos outros vai um lembrete curto. O chat não perde nada, porque o texto já está no histórico dele.\n- Aviso de conversa longa: a partir de 15 respostas, o chat mostra quanto a última custou e o botão \"Pedir a passagem\". Ele pede ao chat que escreva um arquivo de passagem completo (decisões, arquivos, pendências, cuidados e o texto para colar no chat novo), para continuar num chat novo sem perder o fio.",
-  "size": 89048751,
-  "sha256": "504ae50b743a386358053e817f524bcc6f1a49cf4a1a0ac649608eb0ec62a1d4"
+  "version": "0.62.3",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.3.exe",
+  "notes": "- A conversa longa se reinicia sozinha, no mesmo chat, sem você criar nem apagar chat. A partir de 15 respostas (ou 6, se a última custou US$ 3 ou mais), o próximo turno pede ao próprio chat a passagem completa, guarda, reinicia a sessão do Claude e responde a sua mensagem já na sessão nova, que abre com o design, a passagem e as últimas mensagens. O histórico do chat continua o mesmo, com um aviso e a passagem registrados nele. Se a passagem falhar, a conversa segue como estava. Parar o chat durante a passagem funciona normalmente.\n- Troquei o botão \"Pedir a passagem\" por esse processo automático. O chat mostra \"conversa: N respostas\".\n- Atenção: cada chat já longo faz a passagem uma vez, com o custo de uma resposta grande, e depois volta a custar pouco.",
+  "size": 89051072,
+  "sha256": "84bd4301f96f295e183edb6c5e128c356ffdd11851baece8d1e409062e940a47"
 }
