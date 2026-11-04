@@ -1,7 +1,7 @@
 {
-  "version": "0.62.1",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.1.exe",
-  "notes": "- Os chats de um trabalho com o Godot ligado agora sabem o caminho exato do Godot e recebem a permissão do Bash para ele nas duas grafias (barras normais e invertidas), só para esse programa. Antes a regra só tinha barras invertidas, que o Bash dos chats pode não reconhecer.",
-  "size": 89046039,
-  "sha256": "f4863f56e432bbdbc1910308cebfa4f83f30f54759f1e8649a3a84264b711f2d"
+  "version": "0.62.2",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.2.exe",
+  "notes": "- Conversas mais baratas, para todos os chats de todos os projetos (os que já existem e os novos). O documento de design deixou de ser colado inteiro em toda mensagem: vai inteiro no primeiro turno, quando muda, quando a sessão do chat muda e a cada 8 turnos, e nos outros vai um lembrete curto. O chat não perde nada, porque o texto já está no histórico dele.\n- Aviso de conversa longa: a partir de 15 respostas, o chat mostra quanto a última custou e o botão \"Pedir a passagem\". Ele pede ao chat que escreva um arquivo de passagem completo (decisões, arquivos, pendências, cuidados e o texto para colar no chat novo), para continuar num chat novo sem perder o fio.",
+  "size": 89048751,
+  "sha256": "504ae50b743a386358053e817f524bcc6f1a49cf4a1a0ac649608eb0ec62a1d4"
 }
