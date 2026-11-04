@@ -1,7 +1,7 @@
 {
-  "version": "0.62.3",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.3.exe",
-  "notes": "- A conversa longa se reinicia sozinha, no mesmo chat, sem você criar nem apagar chat. A partir de 15 respostas (ou 6, se a última custou US$ 3 ou mais), o próximo turno pede ao próprio chat a passagem completa, guarda, reinicia a sessão do Claude e responde a sua mensagem já na sessão nova, que abre com o design, a passagem e as últimas mensagens. O histórico do chat continua o mesmo, com um aviso e a passagem registrados nele. Se a passagem falhar, a conversa segue como estava. Parar o chat durante a passagem funciona normalmente.\n- Troquei o botão \"Pedir a passagem\" por esse processo automático. O chat mostra \"conversa: N respostas\".\n- Atenção: cada chat já longo faz a passagem uma vez, com o custo de uma resposta grande, e depois volta a custar pouco.",
-  "size": 89051072,
-  "sha256": "84bd4301f96f295e183edb6c5e128c356ffdd11851baece8d1e409062e940a47"
+  "version": "0.62.4",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.4.exe",
+  "notes": "- Cada resposta do Claude mostra quanto custou, ao lado do nome, com uma seta (▲ subiu, ▼ caiu) comparando com a resposta anterior, e o topo do chat mostra a soma gasta nele. Os chats antigos também mostram: o custo de cada resposta já registrado foi ligado às respostas (conferido na sua base: 194 de 194 batem com o total).",
+  "size": 89051487,
+  "sha256": "b21115db2ec8e0736d6e76c19d719910bd66c8315b84afdcd9e84881744ca3b8"
 }
