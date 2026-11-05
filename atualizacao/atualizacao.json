@@ -1,7 +1,7 @@
 {
-  "version": "0.62.4",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.4.exe",
-  "notes": "- Cada resposta do Claude mostra quanto custou, ao lado do nome, com uma seta (▲ subiu, ▼ caiu) comparando com a resposta anterior, e o topo do chat mostra a soma gasta nele. Os chats antigos também mostram: o custo de cada resposta já registrado foi ligado às respostas (conferido na sua base: 194 de 194 batem com o total).",
-  "size": 89051487,
-  "sha256": "b21115db2ec8e0736d6e76c19d719910bd66c8315b84afdcd9e84881744ca3b8"
+  "version": "0.62.5",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.5.exe",
+  "notes": "- Os chats são avisados de que a pasta do trabalho já está toda liberada para escrita e de que uma negação ocasional (\"requested permissions\") é passageira: tentar de novo e, em arquivos grandes, reescrever em partes pequenas. Antes, o chat tomava a falha por um bloqueio, desistia e pedia uma liberação que não existe. Só vale para conversas novas ou reiniciadas.",
+  "size": 89051744,
+  "sha256": "92dd1476b11335efecbb85b63e7d5ccb185f2bb0456f237000f430a347f5701b"
 }
