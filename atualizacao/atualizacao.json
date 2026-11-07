@@ -1,7 +1,7 @@
 {
-  "version": "0.62.5",
-  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.5.exe",
-  "notes": "- Os chats são avisados de que a pasta do trabalho já está toda liberada para escrita e de que uma negação ocasional (\"requested permissions\") é passageira: tentar de novo e, em arquivos grandes, reescrever em partes pequenas. Antes, o chat tomava a falha por um bloqueio, desistia e pedia uma liberação que não existe. Só vale para conversas novas ou reiniciadas.",
-  "size": 89051744,
-  "sha256": "92dd1476b11335efecbb85b63e7d5ccb185f2bb0456f237000f430a347f5701b"
+  "version": "0.62.6",
+  "url": "https://dgssantos99-lang.github.io/hub-celular/atualizacao/HubWorkspace-Setup-0.62.6.exe",
+  "notes": "- Os chats que editam vídeo ganharam duas ferramentas do Hub, no lugar de pedir aprovação do terminal: \"importar_video\" copia um vídeo dos anexos, da pasta do trabalho ou dos arquivos do projeto para o filme (filme/assets) e diz a duração, o tamanho e o formato; \"converter_video_vertical\" transforma vídeo de celular (.mov, HEVC) em MP4 vertical 1080 x 1920 a 30 quadros, leve para editar. Só leem a pasta do trabalho e os arquivos do projeto, nunca copiam nada de outro lugar, e não sobrescrevem: o mesmo nome vira \"nome (2)\". O terminal continua liberado só para o OpenFilm.",
+  "size": 89054771,
+  "sha256": "0a0901dd29eda031d31188366ecc962f5bc53caec0a6a56a4d139b4bff3484e2"
 }
